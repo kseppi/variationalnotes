@@ -17,6 +17,9 @@
 \usepackage{placeins}
 \usepackage{color}
 \usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usetikzlibrary{bayesnet}
 %\usepackage{lmodern}
 \usepackage[utf8]{inputenc}
 \usepackage[scaled]{beramono}
@@ -79,6 +82,8 @@
 \renewcommand{\textfraction}{.15}
 \makeatother
 
+\tikzset{main node/.style={circle, draw}}
+\tikzset{hyper node/.style={rectangle, draw}}
 \begin{document}
 \maketitle
 
@@ -109,7 +114,46 @@ We define the LDA model as
     z_{dn} \mid \bm{\theta}_{d} \sim \text{Cat}(\bm{\theta}_{d})
 \end{equation}
 \begin{equation}
-    w_{dn} \mid z_{dn}, \bm{\beta}_{1:K} \sim \text{Cat}(\bm{\beta}_{z_{dn}})
+    w_{dn} \mid z_{dn}, \bm{\beta}_{1:K} \sim \text{Cat}(\bm{\beta}_{z_{dn}}),
 \end{equation}
+where SymDir refers to a symmetric Dirichlet distribution, Dir refers to a
+Dirichlet distribution, and Cat refers to a categorical distribution.  The
+graphical model helps explain what the subscripts mean:
+
+\begin{center}
+\begin{tikzpicture}[->, >=stealth, thick, scale=3.0]
+
+    % Nodes
+
+    \node[obs]                   (w)      {$w_{dn}$} ; %
+    \node[latent, left=of w]    (z)      {$z_{dn}$} ; %
+    \node[latent, left=of z]    (theta)  {$\bm{\theta}_d$}; %
+    \node[const, left=of theta] (alpha) {$\bm{\alpha}$};
+
+    \edge {z} {w}
+    \edge {theta} {z}
+    \edge {alpha} {theta}
+
+    % More nodes
+    \node[latent, above=of z] (beta)  {$\bm{\beta}_k$}; %
+    \node[const]  (eta) at (alpha |- beta) {$\eta$}; %
+
+    \edge {beta} {w}
+    \edge {eta} {beta}
+
+    \plate {plate1} { %
+        (w)
+        (z)
+    } {$1 \leq n \leq N_d$}; %
+    \plate {} { %
+        (plate1) %
+        (theta)
+    } {$1 \leq d \leq M$} ; %
+    \plate[align=left] {} { %
+        (beta)
+    } {$1 \leq k \leq K$} ; %
+
+\end{tikzpicture}
+\end{center}
 
 \end{document}
