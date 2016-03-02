@@ -1658,4 +1658,30 @@ Thus,
     \right)}.\numberthis\label{eq:phiupdate}
 \end{align*}
 
+% \section{Implementing Variational Inference for LDA}
+
+% \subsection{Algorithm}
+
+% \subsection{Using the Fitted Approximate Model}
+
+\section{Final Words}
+
+Let's simply mention some improvements we might want to make to this vanilla
+approach to variational inference on LDA.  First, LDA hyperparameter
+optimization (for $\bm{\alpha}$ and $\eta$) is quite important for getting good
+results.  Details for optimizing $\bm{\alpha}$ can be found in
+\autocite{Blei:2003:LDA}, although the formula given might have a mistake (when
+I followed the derivation, I got the negative of the final equation shown in
+A.4.2).  Also, we could choose to use a collapsed form, as detailed in
+\autocite{collapsedvariational} (note that in \autocite{collapsedvariational},
+the variables are slightly different from the ones used in this tutorial).
+
+In conclusion, this tutorial went through a high-level description of the
+variational inference approach, defined the LDA model and an approximate model
+to use in variational inference, derived the equations necessary to perform
+variational inference, and shared some hints on how to implement this strategy
+and then to use the output.
+
+\printbibliography
+
 \end{document}
