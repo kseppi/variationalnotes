@@ -6,9 +6,7 @@
 \usepackage{bbm}
 \usepackage{bm}
 \usepackage{mathrsfs}
-\usepackage{algorithm}
-\usepackage{algorithmicx}
-\usepackage{algpseudocode}
+\usepackage[ruled,vlined]{algorithm2e}
 \usepackage{array}
 \usepackage[style=ieee,backend=biber]{biblatex}
 \usepackage{caption}
@@ -70,14 +68,7 @@
 %\date{}
 
 \setcounter{secnumdepth}{5}
-\algnewcommand\algorithmicinput{\textbf{Input:}}
-\algnewcommand\Input{\item[\algorithmicinput]}
-\algnewcommand\algorithmicoutput{\textbf{Output:}}
-\algnewcommand\Output{\item[\algorithmicoutput]}
-\algnewcommand\algorithmicsideeffects{\textbf{Side Effects:}}
-\algnewcommand\SideEffects{\item[\algorithmicsideeffects]}
 \makeatletter
-\renewcommand{\ALG@beginalgorithmic}{\small}
 \renewcommand{\labelitemii}{$\diamond$}
 \renewcommand{\labelitemiii}{\scriptsize$\blacksquare$}
 \renewcommand{\bottomfraction}{.7}
@@ -1658,13 +1649,90 @@ Thus,
     \right)}.\numberthis\label{eq:phiupdate}
 \end{align*}
 
-% \section{Implementing Variational Inference for LDA}
+\section{Implementing Variational Inference for LDA}
 
-% \subsection{Algorithm}
+Now that we have the update equations, we need to know how to use them.
 
-% \subsection{Using the Fitted Approximate Model}
+\subsection{Algorithm}
 
-\section{Final Words}
+As mentioned earlier, the idea is to iteratively update each hyperparameter
+until we find some maximum point.  We decide that we have reached a high enough
+point when the lower bound (Eq.~\ref{eq:lowerbound}) has converged; in other
+words, when the lower bound does not change after an update cycle.
+
+To make this process clear, here is the pseudocode:
+
+\begin{algorithm}[H]
+    \caption{Pseudocode for variational LDA}
+    \DontPrintSemicolon
+    initialize $\gamma_{[d][k]} = \alpha_{k} + N_{d} / K$ for all $d$ and $k$\;
+    initialize $\phi_{[d][n][k]} = 1 / K$ for all $d, n,$ and $k$\;
+    \While{not converged}{
+        \For{$1 \leq k \leq K$}{
+            \For{$1 \leq v \leq V$}{
+                \tcp*[l]{Eq.~\ref{eq:lambdaupdate}}
+                Update $\lambda_{[k][v]} = \eta + \sum_{d=1}^{M}
+                \sum_{n=1}^{N_{d}} \delta(w_{[d][n]}, v)\cdot\phi_{[d][n][k]}$\;
+            }
+        }
+        \For{$1 \leq d \leq M$}{
+            \tcp*[l]{per document updates}
+            \While{not converged}{
+                \For{$1 \leq n \leq N_{d}$}{
+                    \For{$1 \leq k \leq K$}{
+                        \tcp*[l]{Eq.~\ref{eq:phiupdate}}
+                        Update $\phi_{[d][n][k]} = \frac{\exp \left(
+                        \psi(\gamma_{[d][k]}) +
+                        \psi(\lambda_{[k][w_{[d][n]}]}) - \psi(\sum_{v'=1}^{V}
+                        \lambda_{[k][v']})\right)}
+                        {\sum_{k'=1}^{K} \exp \left( \psi(\gamma_{[d][k']}) +
+                        \psi(\lambda_{[k'][w_{[d][n]}]}) - \psi(\sum_{v'=1}^{V}
+                        \lambda_{[k'][v']}) \right)}$\;
+                    }
+                }
+                \For{$1 \leq k \leq K$}{
+                    \tcp*[l]{Eq.~\ref{eq:gammaupdate}}
+                    Update $\gamma_{[d][k]} = \alpha_{k} + \sum_{n=1}^{N_{d}}
+                    \phi_{[d][n][k]}$\;
+                }
+            }
+        }
+    }
+\end{algorithm}
+
+Calculating the lower bound can be very expensive, so we can typically save time
+by checking to see how much the hyperparameters have changed since the previous
+convergence check.  So the global convergence check registers convergence when
+all $\lambda_{[k][v]}$ have not changed much and all the per document
+convergence checks register convergence.
+
+Once we reach convergence, we have found the maximum point for which our
+approximate model most matches the true LDA model.
+
+\subsection{Using the Fitted Approximate Model}
+
+Once we have converged, we know what the hyperparameter values are.  By taking
+the expectations of each of these hyperparameters, we can approximate the
+corresponding latent variable from the LDA model for which the hyperparameters
+are used in defining the variables of the approximate model.
+
+For example, $\bm{\lambda}_{[k]}$ is the hyperparameter for $\bm{\beta}_{k}$.
+So we approximate $\bm{\beta}_{k}$ by saying that
+\begin{equation}
+    \bm{\beta}_{k} \approx \E[\bm{\lambda}_{k}].
+\end{equation}
+Since these two variables make a Dirichlet distribution, we know (from
+Wikipedia) that
+\begin{equation}
+    \beta_{[k][v]} \approx \frac{\lambda_{[k][v]}}{\sum_{v=1}^{V}
+    \lambda_{[k][v]}}.
+\end{equation}
+This same logic applies to $\bm{\gamma}_{d}$ as hyperparameter to
+$\bm{\theta}_{d}$, since they are another Dirichlet distribution.
+
+In the case of the categorical defined by $\bm{\phi}_{[d][n]}$ as hyperparameter
+to $z_{[d][n]}$, we choose $z_{[d][n]} = k$ for which $\phi_{[d][n][k]} \geq
+\phi_{[d][n][k']}$ for all $k'$.  \section{Final Words}
 
 Let's simply mention some improvements we might want to make to this vanilla
 approach to variational inference on LDA.  First, LDA hyperparameter
@@ -1672,9 +1740,14 @@ optimization (for $\bm{\alpha}$ and $\eta$) is quite important for getting good
 results.  Details for optimizing $\bm{\alpha}$ can be found in
 \autocite{Blei:2003:LDA}, although the formula given might have a mistake (when
 I followed the derivation, I got the negative of the final equation shown in
-A.4.2).  Also, we could choose to use a collapsed form, as detailed in
-\autocite{collapsedvariational} (note that in \autocite{collapsedvariational},
-the variables are slightly different from the ones used in this tutorial).
+A.4.2).  Also, we could improve the space complexity of the algorithm by taking
+the approach Kevin Black (5.4.1 in \autocite{kb}) and Kevin Murphy (27.3.6.2--3
+in \autocite{Murphy}) show by considering counts of token types per document
+(instead of considering the token type of each token in each document, as we
+have done in this tutorial).  Finally, we could choose to use a collapsed form,
+as detailed in \autocite{collapsedvariational} (note that in
+\autocite{collapsedvariational}, the variables are slightly different from the
+ones used in this tutorial).
 
 In conclusion, this tutorial went through a high-level description of the
 variational inference approach, defined the LDA model and an approximate model
