@@ -65,7 +65,7 @@
 \sloppy
 \title{Variational LDA Notes}
 \author{Nozomu Okuda}
-%\date{}
+\date{March 11, 2016}
 
 \setcounter{secnumdepth}{5}
 \makeatletter
@@ -605,7 +605,8 @@ are consolidated.
 \subsection{Properties of Distributions}
 
 To continue with Eq.~\ref{eq:ldalb3}, we need some probability density functions
-(pdfs).  This subsection is devoted to showing what pdfs we need.
+(pdfs) and some probability mass functions (pmfs).  This subsection is devoted
+to showing what pdfs and pmfs we need.
 
 \subsubsection{Dirichlet Distributions}
 
@@ -658,12 +659,12 @@ variable vector is
 \subsubsection{Categorical Distributions}
 
 Let $x$ be the random variable for a categorical distribution $c$.  Let the
-vector $\bm{\xi}$ be its hyperparameter.  Then its pdf is
-\begin{equation}\label{eq:catpdf}
+vector $\bm{\xi}$ be its hyperparameter.  Then its pmf is
+\begin{equation}\label{eq:catpmf}
     c(x \mid \bm{\xi}) = \xi_{x}.
 \end{equation}
-Hence, the log pdf of a categorical distribution is
-\begin{equation}\label{eq:logcatpdf}
+Hence, the log pmf of a categorical distribution is
+\begin{equation}\label{eq:logcatpmf}
     \log c(x \mid \bm{\xi}) = \log \xi_{x}.
 \end{equation}
 The expected value of the log of a given random variable for a categorical
@@ -1134,7 +1135,7 @@ respect to the variable over which the integral will be taken:
     d\bm{\theta}_{d}. \numberthis
 \end{align*}
 
-We can also explicitly write out the categorical pdf:
+We can also explicitly write out the categorical pmf:
 \begin{align*}
     &\sum_{z_{[d][n]=1}}^{K}q(z_{[d][n]} \mid \bm{\phi}_{[d][n]})
     \int q(\bm{\theta}_{d} \mid \bm{\gamma}_{d}) \log \theta_{[d][z_{[d][n]}]}
@@ -1657,8 +1658,8 @@ Now that we have the update equations, we need to know how to use them.
 
 As mentioned earlier, the idea is to iteratively update each hyperparameter
 until we find some maximum point.  We decide that we have reached a high enough
-point when the lower bound (Eq.~\ref{eq:lowerbound}) has converged; in other
-words, when the lower bound does not change after an update cycle.
+point when the lower bound (Eq.~\ref{eq:lowerboundformula}) has converged; in
+other words, when the lower bound does not change after an update cycle.
 
 To make this process clear, here is the pseudocode:
 
@@ -1667,14 +1668,14 @@ To make this process clear, here is the pseudocode:
     \DontPrintSemicolon
     initialize $\gamma_{[d][k]} = \alpha_{k} + N_{d} / K$ for all $d$ and $k$\;
     initialize $\phi_{[d][n][k]} = 1 / K$ for all $d, n,$ and $k$\;
-    \While{not converged}{
-        \For{$1 \leq k \leq K$}{
-            \For{$1 \leq v \leq V$}{
-                \tcp*[l]{Eq.~\ref{eq:lambdaupdate}}
-                Update $\lambda_{[k][v]} = \eta + \sum_{d=1}^{M}
-                \sum_{n=1}^{N_{d}} \delta(w_{[d][n]}, v)\cdot\phi_{[d][n][k]}$\;
-            }
+    \For{$1 \leq k \leq K$}{
+        \For{$1 \leq v \leq V$}{
+            \tcp*[l]{Eq.~\ref{eq:lambdaupdate}}
+            Initialize $\lambda_{[k][v]} = \eta + \sum_{d=1}^{M}
+            \sum_{n=1}^{N_{d}} \delta(w_{[d][n]}, v)\cdot\phi_{[d][n][k]}$\;
         }
+    }
+    \While{not converged}{
         \For{$1 \leq d \leq M$}{
             \tcp*[l]{per document updates}
             \While{not converged}{
@@ -1697,6 +1698,13 @@ To make this process clear, here is the pseudocode:
                 }
             }
         }
+        \For{$1 \leq k \leq K$}{
+            \For{$1 \leq v \leq V$}{
+                \tcp*[l]{Eq.~\ref{eq:lambdaupdate}}
+                Update $\lambda_{[k][v]} = \eta + \sum_{d=1}^{M}
+                \sum_{n=1}^{N_{d}} \delta(w_{[d][n]}, v)\cdot\phi_{[d][n][k]}$\;
+            }
+        }
     }
 \end{algorithm}
 
@@ -1704,7 +1712,9 @@ Calculating the lower bound can be very expensive, so we can typically save time
 by checking to see how much the hyperparameters have changed since the previous
 convergence check.  So the global convergence check registers convergence when
 all $\lambda_{[k][v]}$ have not changed much and all the per document
-convergence checks register convergence.
+convergence checks register convergence.\footnote{In fact, even faster
+implementations simply iterate a set number of times through the updates without
+making the convergence check.}
 
 Once we reach convergence, we have found the maximum point for which our
 approximate model most matches the true LDA model.
