@@ -1,0 +1,937 @@
+\documentclass[12pt]{article}
+\usepackage[hyphens]{url}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amsthm,amssymb}
+\usepackage{appendix}
+\usepackage[USenglish]{babel}
+\usepackage{bbm}
+\usepackage{bm}
+\usepackage{mathrsfs}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{array}
+\usepackage[style=ieee,backend=biber]{biblatex}
+\usepackage{caption}
+\usepackage[autostyle=true,english=american]{csquotes}
+\usepackage[multiple]{footmisc}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{multirow}
+\usepackage{placeins}
+\usepackage{color}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usetikzlibrary{bayesnet}
+%\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage[scaled]{beramono}
+%\usepackage[T1]{fontenc}
+
+\addbibresource{bib.bib}
+\newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}}
+\setcounter{secnumdepth}{5}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+
+\lstset{ %
+  backgroundcolor=\color{white},   % choose the background color; you must add \usepackage{color} or \usepackage{xcolor}
+  basicstyle=\fontsize{9}{9}\ttfamily,        % the size of the fonts that are used for the code
+  breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+  breaklines=true,                 % sets automatic line breaking
+  captionpos=b,                    % sets the caption-position to bottom
+  commentstyle=\color{mygreen},    % comment style
+  deletekeywords={...},            % if you want to delete keywords from the given language
+  escapeinside={\%*}{*)},          % if you want to add LaTeX within your code
+  extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
+  frame=single,                    % adds a frame around the code
+  keepspaces=true,                 % keeps spaces in text, useful for keeping indentation of code (possibly needs columns=flexible)
+  keywordstyle=\color{blue},       % keyword style
+  language=Octave,                 % the language of the code
+  morekeywords={*,...},            % if you want to add more keywords to the set
+  numbers=left,                    % where to put the line-numbers; possible values are (none, left, right)
+  numbersep=5pt,                   % how far the line-numbers are from the code
+  numberstyle=\tiny\color{mygray}, % the style that is used for the line-numbers
+  rulecolor=\color{black},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+  showspaces=false,                % show spaces everywhere adding particular underscores; it overrides 'showstringspaces'
+  showstringspaces=false,          % underline spaces within strings only
+  showtabs=false,                  % show tabs within strings adding particular underscores
+  stepnumber=2,                    % the step between two line-numbers. If it's 1, each line will be numbered
+  stringstyle=\color{mymauve},     % string literal style
+  tabsize=2,                       % sets default tabsize to 2 spaces
+  title=\lstname                   % show the filename of files included with \lstinputlisting; also try caption instead of title
+}
+\allowdisplaybreaks
+
+\sloppy
+\title{Variational Faculty Evaluations}
+\author{Nozomu Okuda}
+\date{June 6, 2016}
+
+\setcounter{secnumdepth}{5}
+\makeatletter
+\renewcommand{\labelitemii}{$\diamond$}
+\renewcommand{\labelitemiii}{\scriptsize$\blacksquare$}
+\renewcommand{\bottomfraction}{.7}
+\renewcommand{\textfraction}{.15}
+\makeatother
+
+\newcommand{\KL}{\operatorname{KL}}
+\newcommand{\E}{\operatorname{E}}
+
+\tikzset{main node/.style={circle, draw}}
+\tikzset{hyper node/.style={rectangle, draw}}
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+This document consists of my explanation for how variational inference on the
+faculty evaluations model is derived.  I rely on intuitions developed from
+writing my previous document \autocite{myvarlda} and from the sources cited
+there.  Another tutorial deriving a similar model can be found in
+\autocite{foxvartut}.
+
+I assume that readers of this document are familiar with basic probability
+theory, probabilistic graphical models, and mathematical notation.
+
+The impetus for this formulation is as an exercise for a Bayesian statistics
+class I am taking, taught by Dr. Kevin Seppi.
+
+\section{Variational Inference}
+
+We begin by reminding ourselves of the lower bound equation:
+
+\begin{align}
+    \log{p(D)} &\geq L(\bm{x}, D) \nonumber\\
+    L(\bm{x}, D) &= -\KL(q(\bm{x}) \parallel p(\bm{x}, D)) \nonumber\\
+    &= \E_{q}[\log{p(\bm{x}, D)}] - \E_{q}[\log{q(\bm{x})}]
+    \label{eq:lowerbound}
+\end{align}
+
+%TODO fill in and make fit
+Wikipedia \autocite{wikivar} tells me that there is another way to solve for the
+update equations.  With further insight from Blei's notes
+\autocite{bleinotesvar}, I shall undertake a new strategy.  Instead of solving
+for the derivative directly, we will accept Blei's derivations and use Eq.~25 of
+\autocite{bleinotesvar} to solve for the update equations.  Conveniently, we've
+already solved for part of the formula, so let's see what else we need to do.
+
+\section{Faculty Evaluations Model}
+
+We define the faculty evaluations model as
+\begin{equation}
+    \mu \mid \mu', \delta' \sim \text{Normal}(\mu', \delta')
+\end{equation}
+\begin{equation}
+    \delta \mid \alpha, \beta \sim \text{InverseGamma}(\alpha, \beta)
+\end{equation}
+\begin{equation}
+    y_{k} \mid \mu, \delta \sim \text{Normal}(\mu, \delta)
+\end{equation}
+where $y_{k}$ is an observed score, $\mu$ is the mean of the distribution which
+generates the scores, and $\delta$ is the variance.  Note that the Normal
+distribution is parameterized by mean and variance; the inverse gamma
+distribution is parameterized by $\alpha$ and $\beta$.
+
+The graphical model looks as follows:
+\begin{center}
+\begin{tikzpicture}[->, >=stealth, thick, scale=3.0]
+
+    % Nodes
+
+    \node[obs]                   (y)      {$y_{k}$} ; %
+    \node[latent, left=of y]    (mu)      {$\mu$} ; %
+    \node[latent, right=of y]    (delta)  {$\delta$}; %
+
+    \edge {mu} {y}
+    \edge {delta} {y}
+
+    \plate {plate1} { %
+        (y)
+    } {$K$}; %
+
+\end{tikzpicture}
+\end{center}
+
+Since we have the evaluation data already, we are interested in the posterior
+distributions of $\mu$ and $\delta$.
+
+We know how to factor the joint probability of the model:
+\begin{equation}
+    p(\bm{x}, D) = p(\mu|\mu', \delta')p(\delta|\alpha, \beta)\prod_{k=1}^{K}p(y_{k}|\mu, \delta)
+\end{equation}
+
+So
+\begin{align}
+    \log{p(\bm{x}, D)} &= \log{p(\mu)} + \log{p(\delta)} + \sum_{k=1}^{K}
+    \log{p(y_{k}|\mu, \delta)} \nonumber \\
+    &=
+    \log{\left(\frac{1}{\sqrt{2\delta'\pi}}\exp{-\frac{(\mu-\mu')^{2}}{2\delta'}}\right)} +
+    \log{\left(\frac{\beta^{\alpha}}{\Gamma(\alpha)}\delta^{-\alpha-1}\exp{\frac{\beta}{\delta}}\right)}
+    \nonumber \\
+    &\quad\quad\quad\quad+ \sum_{k=1}^{K}
+    \log{\left(\frac{1}{\sqrt{2\delta\pi}}\exp{-\frac{(y_{k}-\mu)^{2}}{2\delta}}\right)}
+    \nonumber \\
+    &= -\frac{1}{2} \log{(2\delta'\pi)} - \frac{(\mu - \mu')^{2}}{2\delta'} +
+    \alpha \log{(\beta)} - \log{(\Gamma(\alpha))} - (\alpha + 1) \log{(\delta)}
+    + \frac{\beta}{\delta}\nonumber \\
+    &\quad\quad\quad\quad+ \sum_{k=1}^{K} \left[-\frac{1}{2}
+    \log{(2\delta\pi)} - \frac{(y_{k} - \mu)^{2}}{2\delta}\right] \nonumber \\
+    &= -\frac{(\mu-\mu')^{2}}{2\delta'} - (\alpha+1)\log{(\delta)} +
+    \frac{\beta}{\delta} - \frac{K}{2}\log{(\delta)} -
+    \frac{1}{2\delta}\sum_{k=1}^{K} (y_{k}-\mu)^{2} + C_p
+\end{align}
+where $C_p$ is a constant holding the values not dependent on $\mu$ or $\delta$
+in $p$.
+
+\section{Deriving the Approximate Distribution}
+
+Let's start with $\mu$:
+\begin{align}
+    q(\mu) &\propto \exp{(\E_{\neg q(\mu)}[\log{p(\mu, \delta, y_{1:K})}])}
+    \nonumber \\
+    &= \exp{(\E_{\neg q(\mu)}[\log{p(\bm{x}, D)}])}
+    \nonumber \\
+    &= \exp{(\E_{\neg q(\mu)}[-\frac{(\mu-\mu')^2}{2\delta'}
+    - (\alpha+1)\log{(\delta)} + \frac{\beta}{\delta}
+    - \frac{K}{2}\log{(\delta)}
+    - \frac{1}{2\delta} \sum_{k=1}^{K} (y_{k} - \mu)^2
+    + C_p])}
+    \nonumber \\
+    &\propto \exp{(\E_{\neg q(\mu)}[-\frac{(\mu-\mu')^2}{2\delta'}
+    - \frac{1}{2\delta} \sum_{k=1}^{K} (y_{k} - \mu)^2])}
+    \nonumber \\
+    &= \exp{(-\frac{(\mu-\mu')^2}{2\delta'}
+        - \frac{\sum_{k=1}^{K}(y_{k}-\mu)^2}{2}\E_{\neg q(\mu)}[\frac{1}{\delta}]
+    )}
+    \nonumber \\
+    &= \exp{(-\frac{\mu^2 - 2\mu\mu' -\mu'^2}{2\delta'}
+        - \frac{\sum_{k=1}^{K}(y_{k}^2 -2y_{k}\mu + \mu^2)}{2}\E_{\neg q(\mu)}[\frac{1}{\delta}]
+    )}
+    \nonumber \\
+    &= \exp{(-\frac{\mu^2 - 2\mu\mu' -\mu'^2}{2\delta'}
+        - \frac{\sum_{k=1}^{K}y_{k}^2 -\sum_{k=1}^{K}2y_{k}\mu + \sum_{k=1}^{K}\mu^2}{2}\E_{\neg q(\mu)}[\frac{1}{\delta}]
+    )}
+    \nonumber \\
+    &\propto \exp{(-\frac{\mu^2 - 2\mu\mu'}{2\delta'}
+        - \frac{-\sum_{k=1}^{K}2y_{k}\mu + K\mu^2}{2}\E_{\neg q(\mu)}[\frac{1}{\delta}]
+    )}
+    \nonumber \\
+    &= \exp{(-\frac{1}{2\delta'}\mu^2 - \frac{\mu'}{\delta'}\mu
+        + (\sum_{k=1}^{K}y_{k}\mu - \frac{K}{2}\mu^2)\E_{\neg q(\mu)}[\frac{1}{\delta}]
+    )}
+    \nonumber \\
+    &= \exp{(-\frac{1}{2\delta'}\mu^2 - \frac{\mu'}{\delta'}\mu
+        + (\frac{\sum_{k=1}^{K}y_{k}\delta'}{\delta'}\mu
+        - \frac{K\delta'}{2\delta'}\mu^2)\E_{\neg q(\mu)}[\frac{1}{\delta}]
+    )}
+    \nonumber \\
+    &= \exp{(-\frac{1+K\delta'\E_{\neg q(\mu)}[\frac{1}{\delta}]}{2\delta'}\mu^2
+    + \frac{-\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}{\delta'}\mu
+    )}
+    \nonumber \\
+    &= \exp{(-(\frac{1+\E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K}{2\delta'}\mu^2
+    - \frac{-\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}{\delta'}\mu
+    ))}
+    \nonumber \\
+    &\propto
+    \exp{(-\frac{1+\E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K}{2\delta'}
+    (\mu
+    - \frac{
+    -\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}
+    {1 + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K})^2
+    )}
+\end{align}
+Since $q(\mu)$ is a pdf, and we know that it is proportional to the kernel of a
+Normal distribution, we can see that
+\begin{align}\label{eq:qmu}
+    q(\mu) = N\left(\frac{-\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}] \delta' \sum_{k=1}^{K}
+    y_{k}}{1 + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K}, \frac{\delta'}{1 + \E_{\neg
+    q(\mu)}[\frac{1}{\delta}]\delta'K}\right).
+\end{align}
+
+Now we need $q(\delta)$
+\begin{align}
+    q(\delta) &\propto \exp{(\E_{\neg q(\delta)}[\log p(\delta, \mu, y_{1:K})])}
+    \nonumber \\
+    &= \exp{(\E_{\neg q(\delta)}[\log p(\bm{x}, D)])}
+    \nonumber \\
+    &= \exp{(\E_{\neg q(\delta)}[-\frac{(\mu-\mu')^2}{2\delta'}
+    - (\alpha+1)\log{(\delta)} + \frac{\beta}{\delta}
+    - \frac{K}{2}\log{(\delta)}
+    - \frac{1}{2\delta} \sum_{k=1}^{K} (y_{k} - \mu)^2
+    + C_p])}
+    \nonumber \\
+    &= \exp{(
+    - \frac{1}{2\delta'}\E_{\neg q(\delta)}[(\mu - \mu')^2]
+    - (\alpha+1)\log{(\delta)} + \frac{\beta}{\delta}
+    - \frac{K}{2}\log{(\delta)}
+    - \frac{1}{2\delta} \E_{\neg q(\delta)}[\sum_{k=1}^{K} (y_{k} - \mu)^2
+    ])}
+    \nonumber \\
+    &\propto \exp{(
+    - (\alpha+1)\log{(\delta)} + \frac{\beta}{\delta}
+    - \frac{K}{2}\log{(\delta)}
+    - \frac{1}{2\delta} \E_{\neg q(\delta)}[\sum_{k=1}^{K} (y_{k} - \mu)^2
+    ])}
+    \nonumber \\
+    &= \delta^{-(\alpha+\frac{K}{2}) - 1}\exp{(
+    \frac{\beta}{\delta}
+    - \frac{1}{2\delta} \E_{\neg q(\delta)}[\sum_{k=1}^{K} (y_{k} - \mu)^2
+    ])}
+    \nonumber \\
+    &= \delta^{-(\alpha+\frac{K}{2}) - 1}\exp{(
+    \frac{2\beta}{2\delta}
+    - \frac{1}{2\delta} \E_{\neg q(\delta)}[\sum_{k=1}^{K} (y_{k}^2 -2y_{k}\mu +
+    \mu^2)
+    ])}
+    \nonumber \\
+    &= \delta^{-(\alpha+\frac{K}{2}) - 1}\exp{(
+    \frac{2\beta
+    - \E_{\neg q(\delta)}[\sum_{k=1}^{K} (y_{k}^2 -2y_{k}\mu +
+    \mu^2)}{2\delta}
+    ])}
+    \nonumber \\
+    &= \delta^{-(\alpha+\frac{K}{2}) - 1}\exp{(
+    \frac{2\beta
+    - \sum_{k=1}^{K} y_{k}^2 + \sum_{k=1}^{K}2y_{k}
+    \E_{\neg q(\delta)}[\mu] - K\E_{\neg q(\delta)}[\mu^2]}{2\delta}
+    ])}
+    \nonumber \\
+    &= \delta^{-(\alpha+\frac{K}{2}) - 1}\exp{(
+    -\frac{-2\beta
+    + \sum_{k=1}^{K} y_{k}^2 - 2\E_{\neg q(\delta)}[\mu] \sum_{k=1}^{K}y_{k}
+    + K\E_{\neg q(\delta)}[\mu^2]}{2\delta}
+    ])}
+\end{align}
+Since $q(\delta)$ is a pdf, and we know that it is proportional to the kernel of
+an inverse gamma distribution, we can see that
+\begin{align}\label{eq:qdelta}
+    q(\delta) = \text{InverseGamma}\left(\alpha + \frac{K}{2},
+    \frac{-2\beta + \sum_{k=1}^{K} y_{k}^{2} - 2 \E_{\neg q(\delta)}[\mu]
+    \sum_{k=1}^{K} y_{k} + K\E_{\neg q(\delta)}[\mu^2]}{2}
+    \right)
+\end{align}
+
+\section{Update Equations}
+
+You've probably noticed that the two distributions are defined by expectations
+over the other.  In other words, one distribution is defined by the expectation
+of the other and vice-versa.  Thus, we need to update one distribution, then use
+the updated distribution to update the other distribution, and continue to do so
+until both distributions converge.  This strategy is called expectation
+maximization, and I hear that there is a proof that this method converges.
+
+Let's define some parameters for our distributions.  Let $m$ be the mean of
+$q(\mu)$ and $v$ be the variance of $q(\mu)$.  Note that $q(\mu)$ is a Normal
+distribution.  Conveniently, smart people \autocite{gaussian} figured out some
+expectations that we need, namely
+\begin{align}
+    \E_{q(\mu)}[\mu] &= m \\
+    \E_{q(\mu)}[\mu^2] &= m^2 + v.
+\end{align}
+
+As for $q(\delta)$, let $a$ be the $\alpha$ parameter for $q(\delta)$ and $b$ be
+the $\beta$ parameter for $q(\delta)$.  Note that $q(\delta)$ is an Inverse
+Gamma distribution.  Conveniently, smart people \autocite{invgamma} figured out
+some expectations that we need, namely
+\begin{align}
+    \E_{q(\delta)}[\frac{1}{\delta}] = \frac{b}{a}.
+\end{align}
+
+One last note to consider:  When confronted with the notation
+$\E_{q(\neg q(\mu))}$, it is equivalent to the notation $\E_{q(\delta)}$ for
+the approximate model, since $q = q(\mu)q(\delta)$.  Likewise, $\E_{\neg
+q(\delta)} = \E_{q(\mu)}$.
+
+With these expectations and the parameter specifications from Eqs.~\ref{eq:qmu}
+and \ref{eq:qdelta}, we have all the information we need to form the update
+formulas.  Simply plug in the expectation values where needed:
+\begin{align}
+    m &= \frac{-\mu' + \frac{b}{a} \delta' \sum_{k=1}^{K}
+    y_{k}}{2\delta'}
+    \\
+    v &= \frac{\delta'}{1 + \frac{b}{a}\delta'K}
+    \\
+    a &= \alpha + \frac{K}{2}
+    \\
+    b &= \frac{-2\beta + \sum_{k=1}^{K} y_{k}^{2} - 2m
+    \sum_{k=1}^{K} y_{k} + K(m^2 + v)}{2}
+\end{align}
+
+
+\iffalse
+\begin{appendices}
+
+\section{Maximizing the Lower Bound Directly}
+While what has just been described works well in practice, my original
+    understanding of variational inference follows the steps shown below.  Note
+    that in this case, we have to specify the approximate model to begin with
+    and then do lots of algebra and calculus to get the update equations.
+    Unfortunately, I got stuck in one part (specifically, the $\alpha'$ update),
+    which is why I turned to the alternate strategy presented previously.  As I
+    did almost all of the work to get this derivation functional, I thought it
+    would be good to present it here outside of the main text of the document.
+
+\subsection{Approximate Model}
+
+In order to apply the variational method, we need an approximate model.  In this
+section, we build up the approximate model under the mean field assumption.
+Such a model is defined as follows:
+\begin{equation}
+    \mu \mid \mu'', \delta'' \sim \text{Normal}(\mu'', \delta'')
+\end{equation}
+\begin{equation}
+    \delta \mid \alpha', \beta' \sim \text{InverseGamma}(\alpha', \beta')
+\end{equation}
+
+The graphical model of this model is as follows:
+\begin{center}
+\begin{tikzpicture}[->, >=stealth, thick, scale=3.0]
+
+    % Nodes
+    \node[latent]    (mu)      {$\mu$} ; %
+    \node[latent, above=of mu]    (mupp)  {$\mu''$}; %
+    \node[latent, right=of mu] (deltapp) {$\delta''$};
+
+    % More nodes
+    \node[latent, right=of deltapp] (delta)  {$\delta$}; %
+    \node[latent, above=of delta]  (alphap) {$\alpha'$}; %
+    \node[latent, right=of delta] (betap) {$\beta'$};
+
+    \edge {mupp} {mu}
+    \edge {deltapp} {mu}
+    \edge {alphap} {delta}
+    \edge {betap} {delta}
+
+\end{tikzpicture}
+\end{center}
+
+Then the joint probability of this approximate model becomes apparent:
+\begin{equation}
+    q(\bm{x}) = q(\mu|\mu'', \delta'')q(\delta|\alpha', \beta')
+\end{equation}
+
+So
+\begin{align}
+    \log{q(\bm{x})} &= \log{q(\mu|\mu'', \delta'')} + \log{q(\delta|\alpha', \beta')}
+    \nonumber \\
+    &= -\frac{1}{2} \log{(2\delta''\pi)} - \frac{(\mu - \mu'')^{2}}{2\delta''} +
+    \alpha' \log{(\beta')} - \log{(\Gamma(\alpha'))} - (\alpha' + 1) \log{(\delta)}
+    + \frac{\beta'}{\delta}
+    \nonumber \\
+    &= -\frac{1}{2} \log{(\delta'')} - \frac{(\mu - \mu'')^{2}}{2\delta''} +
+    \alpha' \log{(\beta')} - \log{(\Gamma(\alpha'))} - (\alpha' + 1) \log{(\delta)}
+    + \frac{\beta'}{\delta} + C_q
+\end{align}
+In this case, we are interested in $\mu, \delta, \mu'', \delta'', \alpha',
+\beta'$; constants with respect to those get put in $C_q$.
+
+\subsection{Lower Bound}
+
+Now that we have the lower bound formula, the log joint of $p$, and the log
+joint of $q$, we are ready to fully specify the lower bound formula:
+\begin{align}
+    L(\bm{x}, D) &= \E_{q}[\log p(\bm{x}, D)] - \E_{q}[\log q(\bm{x})]
+    \nonumber \\
+    &= \E_{q}[-\frac{(\mu-\mu')^{2}}{2\delta'} - (\alpha+1)\log{(\delta)} +
+    \frac{\beta}{\delta} - \frac{K}{2}\log{(\delta)} -
+    \frac{1}{2\delta}\sum_{k=1}^{K} (y_{k}-\mu)^{2} + C_p]
+    \nonumber \\
+    &\quad\quad\quad\quad - \E_{q}[-\frac{1}{2} \log{(\delta'')} - \frac{(\mu - \mu'')^{2}}{2\delta''} +
+    \alpha' \log{(\beta')} - \log{(\Gamma(\alpha'))} - (\alpha' + 1) \log{(\delta)}
+    + \frac{\beta'}{\delta} + C_q]
+    \nonumber \\
+    &= -\E_{q}[\frac{(\mu-\mu')^{2}}{2\delta'}] - \E_{q}[(\alpha+1)\log{(\delta)}] +
+    \E_{q}[\frac{\beta}{\delta}] - \E_{q}[\frac{K}{2}\log{(\delta)}] -
+    \E_{q}[\frac{1}{2\delta}\sum_{k=1}^{K} (y_{k}-\mu)^{2}] + \E_{q}[C_p]
+    \nonumber \\
+    &\quad\quad\quad\quad + \E_{q}[\frac{1}{2} \log{(\delta'')}] + \E_{q}[\frac{(\mu - \mu'')^{2}}{2\delta''}]
+    \nonumber \\
+    &\quad\quad\quad\quad -
+    \E_{q}[\alpha' \log{(\beta')}] + \E_{q}[\log{(\Gamma(\alpha'))}] + \E_{q}[(\alpha' + 1) \log{(\delta)}]
+    - \E_{q}[\frac{\beta'}{\delta}] - \E_{q}[C_q]
+    \nonumber \\
+    &= -\frac{1}{2\delta'}\E_{q}[(\mu-\mu')^{2}] - (\alpha+1)\E_{q}[\log{(\delta)}] +
+    \beta\E_{q}[\frac{1}{\delta}] - \frac{K}{2}\E_{q}[\log{(\delta)}] -
+    \frac{1}{2}\sum_{k=1}^{K}\E_{q}[\frac{(y_{k}-\mu)^{2}}{\delta}] + C_p
+    \nonumber \\
+    &\quad\quad\quad\quad + \frac{1}{2}\log{(\delta'')} + \frac{1}{2\delta''}\E_{q}[(\mu - \mu'')^{2}]
+    \nonumber \\
+    &\quad\quad\quad\quad -
+    \alpha' \log{(\beta')} + \log{(\Gamma(\alpha'))} + (\alpha' + 1)\E_{q}[\log{(\delta)}]
+    - \beta'\E_{q}[\frac{1}{\delta}] - C_q
+    \nonumber \\
+    &= -\frac{1}{2\delta'}\E_{q}[(\mu-\mu')^{2}] + (\alpha'-\alpha-\frac{K}{2})\E_{q}[\log{(\delta)}] +
+    (\beta-\beta')\E_{q}[\frac{1}{\delta}] -
+    \frac{1}{2}\sum_{k=1}^{K}\E_{q}[\frac{(y_{k}-\mu)^{2}}{\delta}]
+    \nonumber \\
+    &\quad\quad\quad\quad + \frac{1}{2}\log{(\delta'')} + \frac{1}{2\delta''}\E_{q}[(\mu - \mu'')^{2}]
+    - \alpha' \log{(\beta')} + \log{(\Gamma(\alpha'))}
+    + C_L
+    \nonumber \\
+    &= -\frac{1}{2\delta'}\E_{q}[\mu^2 -2\mu\mu' +\mu'^2] + (\alpha'-\alpha-\frac{K}{2})\E_{q}[\log{(\delta)}] +
+    (\beta-\beta')\E_{q}[\frac{1}{\delta}]
+    \nonumber \\
+    &\quad\quad\quad\quad - \frac{1}{2}\sum_{k=1}^{K}\E_{q}[\frac{y_{k}^2 -2y_{k}\mu +\mu^{2}}{\delta}]
+    \nonumber \\
+    &\quad\quad\quad\quad + \frac{1}{2}\log{(\delta'')}
+    + \frac{1}{2\delta''}\E_{q}[\mu^2 -2\mu\mu'' + \mu''^{2}]
+    - \alpha' \log{(\beta')} + \log{(\Gamma(\alpha'))}
+    + C_L
+    \nonumber \\
+    &= -\frac{1}{2\delta'}\E_{q}[\mu^2] +\frac{\mu'}{\delta'}\E_{q}[\mu]
+    -\frac{\mu'^2}{2\delta'} + (\alpha'-\alpha-\frac{K}{2})\E_{q}[\log{(\delta)}] +
+    (\beta-\beta')\E_{q}[\frac{1}{\delta}]
+    \nonumber \\
+    &\quad\quad\quad\quad -
+    (\frac{1}{2}\sum_{k=1}^{K}y_{k}^2)\E_{q}[\frac{1}{\delta}]
+    +(\sum_{k=1}^{K}y_{k})\E_{q}[\frac{\mu}{\delta}] - \frac{K}{2}\E_{q}[\frac{\mu^{2}}{\delta}]
+    \nonumber \\
+    &\quad\quad\quad\quad + \frac{1}{2}\log{(\delta'')}
+    + \frac{1}{2\delta''}\E_{q}[\mu^2] -\frac{\mu''}{\delta''}\E_{q}[\mu] +
+    \frac{\mu''^{2}}{2\delta''}
+    - \alpha' \log{(\beta')} + \log{(\Gamma(\alpha'))}
+    + C_L
+    \nonumber \\
+    &= (\frac{1}{2\delta''}-\frac{1}{2\delta'})\E_{q}[\mu^2]
+    +(\frac{\mu'}{\delta'}-\frac{\mu''}{\delta''})\E_{q}[\mu]
+    + (\alpha'-\alpha-\frac{K}{2})\E_{q}[\log{(\delta)}] +
+    (\beta-\beta'-\sum_{k=1}^{K}\frac{y_{k}^2}{2})\E_{q}[\frac{1}{\delta}]
+    \nonumber \\
+    &\quad\quad\quad\quad
+    +(\sum_{k=1}^{K}y_{k})\E_{q}[\frac{\mu}{\delta}] - \frac{K}{2}\E_{q}[\frac{\mu^{2}}{\delta}]
+    \nonumber \\
+    &\quad\quad\quad\quad + \frac{1}{2}\log{(\delta'')}
+    + \frac{\mu''^{2}}{2\delta''}
+    - \alpha' \log{(\beta')} + \log{(\Gamma(\alpha'))}
+    + C_L
+\end{align}
+
+Let's pause here for a minute so that we can work out the expectations:
+
+\begin{align}
+    \E_{q}[\mu^2] &= \int\int \mu^2 q(\mu|\mu'',\delta'')q(\delta|\alpha', \beta')
+    d\delta d\mu
+    \nonumber \\
+    &= \int \mu^2 q(\mu|\mu'',\delta'')\int q(\delta|\alpha', \beta')
+    d\delta d\mu
+    \nonumber \\
+    &= \int \mu^2 q(\mu|\mu'', \delta'') d\mu
+\end{align}
+Note that this is the second raw moment of a normal distribution, so
+\begin{align}
+    \E_{q}[\mu^2] &= \int \mu^2 q(\mu|\mu'', \delta'') d\mu
+    \nonumber \\
+    &= \mu''^2 + \delta''^2
+\end{align}
+according to both \autocite{wolframNormal} (see equation 34) and
+\autocite{moment2blog}.
+
+Using a similar trick, we can see that $\E_{q}[\mu]$ is the first raw moment of
+a normal distribution, so
+\begin{align}
+    \E_{q}[\mu] &= \mu''.
+\end{align}
+
+Now starting expectations with $\delta$,
+\begin{align}
+    \E_{q}[\log{\delta}] &= \int \int \log{(\delta)} q(\delta|\alpha', \beta')
+    q(\mu|\mu'', \delta'') d\mu d\delta
+    \nonumber \\
+    &= \int \log{(\delta)} q(\delta|\alpha', \beta')
+    \int q(\mu|\mu'', \delta'') d\mu d\delta
+    \nonumber \\
+    &= \int \log{(\delta)} q(\delta|\alpha', \beta') d\delta
+\end{align}
+Once again appealing to intelligent interpretation, we see that this is the
+expectation of the log value for an inverse gamma distribution.  From
+\autocite{invgamma}, we see that
+\begin{align}
+    \E_{q}[\log{\delta}] &= \log{(\beta')} - \psi(\alpha'),
+\end{align}
+where $\psi(\bullet)$ is the digamma function.\footnote{Although the name makes
+some sense (the digamma function is the first derivative of the log gamma
+function), the notation is incredibly silly, since $\psi$ is the Greek letter
+\enquote{psi}.  On the other hand, the Greek letter for digamma would be
+$\digamma$.  The capital $\digamma$ is F (Note that F has two horizontal strokes
+(\enquote{di-}) whereas $\Gamma$ has only one).}
+
+For the other expectation with $\delta$:
+\begin{align}
+    \E_{q}[\frac{1}{\delta}] &= \int \int \frac{1}{\delta} q(\delta|\alpha', \beta')
+    q(\mu|\mu'', \delta'') d\mu d\delta
+    \nonumber \\
+    &= \int \frac{1}{\delta} q(\delta|\alpha', \beta') \int
+    q(\mu|\mu'', \delta'') d\mu d\delta
+    \nonumber \\
+    &= \int \frac{1}{\delta} q(\delta|\alpha', \beta') d\delta
+    \nonumber \\
+    &= \int \frac{1}{\delta} \frac{\beta'^{\alpha'}}{\Gamma(\alpha')}
+    \delta^{-\alpha' - 1} \exp{\left(\frac{-\beta'}{\delta}\right)} d\delta
+    \nonumber \\
+    &= \frac{\beta'^{\alpha'}}{\Gamma(\alpha')} \int \frac{1}{\delta}
+    \delta^{-\alpha' - 1} \exp{\left(\frac{-\beta'}{\delta}\right)} d\delta
+    \nonumber \\
+    &= \frac{\beta'^{\alpha'}}{\Gamma(\alpha')} \int
+    \delta^{-\alpha' - 2} \exp{\left(\frac{-\beta'}{\delta}\right)} d\delta
+    \nonumber \\
+    &= \frac{\beta'^{\alpha'}}{\Gamma(\alpha')} \frac{\Gamma(\alpha' -
+    1)}{\beta'^{\alpha'-1}}
+    \nonumber \\
+    &= \frac{\beta'^{\alpha'}}{\alpha'\Gamma(\alpha'-1)} \frac{\Gamma(\alpha' -
+    1)}{\beta'^{\alpha'-1}}
+    \nonumber \\
+    &= \frac{\beta'}{\alpha'},
+\end{align}
+which also happens to be given in \autocite{invgamma}.\footnote{If the
+equivalence of the integral to the fraction doesn't make sense, write out the
+pdf of the inverse gamma distribution, set it equal to one, pull the constants
+with $\alpha$ terms out of the integral, and multiply both sides by the
+reciprocal of that constant.  Now substitute $\alpha$ with
+$\alpha'-1$.}\footnote{As for $\Gamma(\alpha') = \alpha'\Gamma(\alpha'-1)$,
+check the definition of the gamma function.}
+
+Now remain the expectations that deal with both $\mu$ and $\delta$.
+Conveniently, we've already done the hard parts, so we substitute our findings
+from the past few expectations into this part:
+\begin{align}
+    \E_{q}[\frac{\mu}{\delta}] &= \int \int \frac{\mu}{\delta} q(\delta|\alpha', \beta')
+    q(\mu|\mu'', \delta'') d\mu d\delta
+    \nonumber \\
+    &= \int \int \frac{1}{\delta} q(\delta|\alpha', \beta')
+    \mu q(\mu|\mu'', \delta'') d\mu d\delta
+    \nonumber \\
+    &= \int \frac{1}{\delta} q(\delta|\alpha', \beta')
+    \int \mu q(\mu|\mu'', \delta'') d\mu d\delta
+    \nonumber \\
+    &= \int \frac{1}{\delta} q(\delta|\alpha', \beta')
+    \mu d\delta
+    \nonumber \\
+    &= \mu \int \frac{1}{\delta} q(\delta|\alpha', \beta')
+    d\delta
+    \nonumber \\
+    &= \mu'' \frac{\beta'}{\alpha'}.
+\end{align}
+
+Likewise,
+\begin{align}
+    \E_{q}[\frac{\mu^2}{\delta}] &= \int \int \frac{\mu^2}{\delta} q(\delta|\alpha', \beta')
+    q(\mu|\mu'', \delta'') d\mu d\delta
+    \nonumber \\
+    &= \int \int \frac{1}{\delta} q(\delta|\alpha', \beta')
+    \mu^2 q(\mu|\mu'', \delta'') d\mu d\delta
+    \nonumber \\
+    &= \int \frac{1}{\delta} q(\delta|\alpha', \beta')
+    \int \mu^2 q(\mu|\mu'', \delta'') d\mu d\delta
+    \nonumber \\
+    &= \int \frac{1}{\delta} q(\delta|\alpha', \beta')
+    (\mu^2 + \delta''^2) d\delta
+    \nonumber \\
+    &= (\mu^2 + \delta''^2) \int \frac{1}{\delta} q(\delta|\alpha', \beta')
+    d\delta
+    \nonumber \\
+    &= (\mu''^2 + \delta''^2) \frac{\beta'}{\alpha'}.
+\end{align}
+
+Now we can substitute these expectations back into the lower bound and continue
+separating terms for convenience later:
+\begin{align}
+    L(\bm{x}, D)
+    &= (\frac{1}{2\delta''}-\frac{1}{2\delta'})\E_{q}[\mu^2]
+    +(\frac{\mu'}{\delta'}-\frac{\mu''}{\delta''})\E_{q}[\mu]
+    + (\alpha'-\alpha-\frac{K}{2})\E_{q}[\log{(\delta)}] +
+    (\beta-\beta'-\sum_{k=1}^{K}\frac{y_{k}^2}{2})\E_{q}[\frac{1}{\delta}]
+    \nonumber \\
+    &\quad\quad\quad\quad
+    +(\sum_{k=1}^{K}y_{k})\E_{q}[\frac{\mu}{\delta}] - \frac{K}{2}\E_{q}[\frac{\mu^{2}}{\delta}]
+    \nonumber \\
+    &\quad\quad\quad\quad + \frac{1}{2}\log{(\delta'')}
+    + \frac{\mu''^{2}}{2\delta''}
+    - \alpha' \log{(\beta')} + \log{(\Gamma(\alpha'))}
+    + C_L
+    \nonumber \\
+    &= (\frac{1}{2\delta''}-\frac{1}{2\delta'})(\mu''^2+\delta''^2)
+    +(\frac{\mu'}{\delta'}-\frac{\mu''}{\delta''})\mu''
+    + (\alpha'-\alpha-\frac{K}{2})(\log(\beta')-\psi(\alpha'))
+    \nonumber \\
+    &\quad\quad\quad\quad
+    + (\beta-\beta'-\sum_{k=1}^{K}\frac{y_{k}^2}{2})\frac{\beta'}{\alpha'}
+    +(\sum_{k=1}^{K}y_{k})\frac{\beta'}{\alpha'}\mu'' -
+    \frac{K\beta'}{2\alpha'}(\mu''^{2}+\delta''^2)
+    \nonumber \\
+    &\quad\quad\quad\quad + \frac{1}{2}\log{(\delta'')}
+    + \frac{\mu''^{2}}{2\delta''}
+    - \alpha' \log{(\beta')} + \log{(\Gamma(\alpha'))}
+    + C_L
+    \nonumber \\
+    &= \frac{\mu''^2}{2\delta''}-\frac{\mu''^2}{2\delta'}
+    + \frac{\delta''^2}{2\delta''}-\frac{\delta''^2}{2\delta'}
+    + \frac{\mu''\mu'}{\delta'}-\frac{\mu''^2}{\delta''}
+    + (\alpha'-\alpha-\frac{K}{2})\log(\beta')-(\alpha'-\alpha-\frac{K}{2})\psi(\alpha')
+    \nonumber \\
+    &\quad\quad\quad\quad
+    + \frac{\beta\beta'}{\alpha'}-\frac{\beta'^2}{\alpha'}-\frac{\beta'}{\alpha'}\sum_{k=1}^{K}\frac{y_{k}^2}{2}
+    +(\mu''\sum_{k=1}^{K}y_{k})\frac{\beta'}{\alpha'}
+    - \frac{K\beta'\mu''^{2}}{2\alpha'}-\frac{K\beta'\delta''^2}{2\alpha'}
+    \nonumber \\
+    &\quad\quad\quad\quad + \frac{1}{2}\log{(\delta'')}
+    + \frac{\mu''^{2}}{2\delta''}
+    - \alpha' \log{(\beta')} + \log{(\Gamma(\alpha'))}
+    + C_L
+    \nonumber \\
+    &= \frac{\mu''^2}{2\delta''}-\frac{\mu''^2}{2\delta'}
+    + \frac{\delta''}{2}-\frac{\delta''^2}{2\delta'}
+    + \frac{\mu''\mu'}{\delta'}-\frac{\mu''^2}{\delta''}
+    + \frac{\mu''^{2}}{2\delta''} + \frac{1}{2}\log{(\delta'')}
+    -\frac{K\beta'\delta''^2}{2\alpha'}
+    - \frac{K\beta'\mu''^{2}}{2\alpha'}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    +(\mu''\sum_{k=1}^{K}y_{k})\frac{\beta'}{\alpha'}
+    - (\alpha+\frac{K}{2})\log(\beta')
+    + \frac{\beta\beta'}{\alpha'}-\frac{\beta'^2}{\alpha'}-\frac{\beta'}{\alpha'}\sum_{k=1}^{K}\frac{y_{k}^2}{2}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    -(\alpha'-\alpha-\frac{K}{2})\psi(\alpha')
+    + \log{(\Gamma(\alpha'))}
+    + C_L
+    \nonumber \\
+    &=
+    \frac{\delta''}{2}-\frac{\delta''^2}{2\delta'}
+    + \frac{\mu''\mu'}{\delta'}
+    + \frac{1}{2}\log{(\delta'')}
+    -\frac{K\beta'\delta''^2}{2\alpha'}
+    - \frac{K\beta'\mu''^{2}}{2\alpha'}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    +(\mu''\sum_{k=1}^{K}y_{k})\frac{\beta'}{\alpha'}
+    - (\alpha+\frac{K}{2})\log(\beta')
+    + \frac{\beta\beta'}{\alpha'}-\frac{\beta'^2}{\alpha'}-\frac{\beta'}{\alpha'}\sum_{k=1}^{K}\frac{y_{k}^2}{2}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    -(\alpha'-\alpha-\frac{K}{2})\psi(\alpha')
+    + \log{(\Gamma(\alpha'))}
+    + C_L
+\end{align}
+This is the formulation of the lower bound we will use in the following section.
+%TODO Fix E[\mu^2] (it should be \mu^2 + \delta)
+
+\subsection{Update Rules}
+
+Now that we know how the lower bound changes with respect to $\mu, \delta,
+\mu'', \delta'', \alpha', \beta'$, we would like to know update rules to make
+$\mu'', \delta'', \alpha', \beta'$ converge to their true values.  We will use
+coordinate-wise ascent for finding the convergence values.  This entails taking
+the derivative of the lower bound with respect to a term of interest, setting
+that equal to zero, and then solving for the term of interest; this is repeated
+for each term of interest.
+
+For $\mu''$,
+\begin{align}
+    \frac{\partial L(\bm{x}, D)}{\partial \mu''} &=
+    \frac{\mu'}{\delta'}
+    - \frac{K\beta'\mu''}{\alpha'} + \frac{\beta'\sum_{k=1}^{K}y_{k}}{\alpha'}
+    = 0
+    \nonumber \\
+    &\rightarrow
+    \nonumber \\
+    \frac{K\beta'\mu''}{\alpha'} &= \frac{\mu'}{\delta'}
+    + \frac{\beta'\sum_{k=1}^{K}y_{k}}{\alpha'}
+    \nonumber \\
+    &\rightarrow
+    \nonumber \\
+    \mu'' &= \frac{\alpha'\mu'}{K\beta'\delta'}
+    + \frac{\sum_{k=1}^{K}y_{k}}{K}
+\end{align}
+
+For $\delta''$,
+\begin{align}
+    \frac{\partial L(\bm{x}, D)}{\partial \delta''} &=
+    \frac{1}{2} - \frac{\delta''}{\delta'}
+    + \frac{1}{2\delta''} - \frac{K\beta'}{\alpha'}\delta''
+    \nonumber \\
+    &= -\frac{\alpha' + K\beta'\delta'}{\alpha'\delta'}\delta'' + \frac{1}{2}
+    + \frac{1}{2\delta''} = 0
+    \nonumber \\
+    & \rightarrow
+    \nonumber \\
+    0 &= -\frac{2(\alpha' + K\beta'\delta')}{\alpha'\delta'}\delta''^2
+    + \delta''
+    + 1
+    \nonumber
+\end{align}
+At this point, we need to use the quadratic equation:
+\begin{align}
+    \delta'' &= \frac{-1 \pm
+    \sqrt{1 + 4\cdot\frac{2(\alpha' + K\beta'\delta')}{\alpha'\delta'}
+    \cdot 1}}
+    {-2\cdot\frac{2(\alpha' + K\beta'\delta')}{\alpha'\delta'}}
+    \nonumber \\
+    &= \frac{1 \pm
+    \sqrt{1 + \frac{8(\alpha' + K\beta'\delta')}{\alpha'\delta'}}}
+    {\frac{4(\alpha' + K\beta'\delta')}{\alpha'\delta'}}
+    \nonumber \\
+    &= \frac{\alpha'\delta' \pm
+    \sqrt{(\alpha'\delta')^2 + 8(\alpha' + K\beta'\delta')(\alpha'\delta')}}
+    {4(\alpha' + K\beta'\delta')}
+    \nonumber \\
+    &= \frac{\alpha'\delta' \pm
+    \sqrt{\alpha'\delta'(\alpha'\delta' + 8(\alpha' + K\beta'\delta'))}}
+    {4(\alpha' + K\beta'\delta')}
+    \nonumber
+\end{align}
+Variance must be positive, so let's make sure of that by allowing only addition
+in the numerator:
+\begin{align}
+    &= \frac{\alpha'\delta' +
+    \sqrt{\alpha'\delta'(\alpha'\delta' + 8(\alpha' + K\beta'\delta'))}}
+    {4(\alpha' + K\beta'\delta')}
+\end{align}
+
+For $\alpha'$,
+\begin{align}
+    \frac{\partial L(\bm{x}, D)}{\partial \alpha'} &=
+    \frac{K\beta'\delta''^2}{2\alpha'^2} + \frac{K\beta'\mu''^2}{2\alpha'^2}
+    - \frac{\mu''\sum_{k=1}^{K}y_{k}\beta'}{\alpha'^2}
+    - \frac{\beta\beta'}{\alpha'^2} + \frac{\beta^2}{\alpha^2}
+    + \frac{\beta'\sum_{1}^{K}y_{k}^2}{2\alpha'^2}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    - \psi(\alpha') - \alpha'\psi'(\alpha')
+    + \alpha\psi'(\alpha') + \frac{K}{2}\psi'(\alpha')
+    + \psi(\alpha')
+    \nonumber \\
+    &=
+    \frac{K\beta'\delta''^2}{2\alpha'^2} + \frac{K\beta'\mu''^2}{2\alpha'^2}
+    - \frac{2\mu''\sum_{k=1}^{K}y_{k}\beta'}{2\alpha'^2}
+    - \frac{2\beta\beta'}{2\alpha'^2} + \frac{2\beta^2}{2\alpha^2}
+    + \frac{\beta'\sum_{1}^{K}y_{k}^2}{2\alpha'^2}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    - \alpha'\psi'(\alpha')
+    + \alpha\psi'(\alpha') + \frac{K}{2}\psi'(\alpha')
+    \nonumber \\
+    &\quad\quad\quad\quad
+    - \psi(\alpha') - \alpha'\psi'(\alpha')
+    + \alpha\psi'(\alpha') + \frac{K}{2}\psi'(\alpha')
+    + \psi(\alpha')
+    \nonumber \\
+    &=
+    \frac{K\beta'\delta''^2 + K\beta'\mu''^2
+    - 2\mu''\beta'\sum_{k=1}^{K}y_{k}
+    - 2\beta\beta' + 2\beta'^2
+    + \beta'\sum_{k=1}^{K}y_{k}^2}{2\alpha'^2}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    + (\frac{K}{2} + \alpha - \alpha')\psi'(\alpha')
+    \nonumber \\
+    &=
+    \frac{\beta'(K(\delta''^2 + \mu''^2)
+    - 2\mu''\sum_{k=1}^{K}y_{k}
+    - 2\beta + 2\beta'
+    + \sum_{k=1}^{K}y_{k}^2)}{2\alpha'^2}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    + (\frac{K}{2} + \alpha - \alpha')\psi'(\alpha')
+    \nonumber \\
+    &=
+    \beta'(K(\delta''^2 + \mu''^2)
+    - 2\mu''\sum_{k=1}^{K}y_{k}
+    - 2\beta + 2\beta'
+    + \sum_{k=1}^{K}y_{k}^2)
+    \nonumber \\
+    &\quad\quad\quad\quad
+    + (K\alpha'^2 + 2\alpha\alpha'^2 - 2\alpha'^3)\psi'(\alpha') = 0
+    \nonumber \\
+    &=
+    \beta'(K(\delta''^2 + \mu''^2)
+    - 2\mu''\sum_{k=1}^{K}y_{k}
+    - 2\beta + 2\beta'
+    + \sum_{k=1}^{K}y_{k}^2)
+    \nonumber \\
+    &\quad\quad\quad\quad
+    + ((K + 2\alpha)\alpha'^2 - 2\alpha'^3)\psi'(\alpha') = 0
+    \nonumber \\
+    & \rightarrow
+    \nonumber \\
+    (2\alpha'^3 - (K + 2\alpha)\alpha'^2)\psi'(\alpha') &=
+    \beta'(K(\delta''^2 + \mu''^2)
+    - 2\mu''\sum_{k=1}^{K}y_{k}
+    - 2\beta + 2\beta'
+    + \sum_{k=1}^{K}y_{k}^2)
+\end{align}
+Hmm...I have no idea how to solve for $\alpha'$ at this point.
+
+For $\beta'$,
+\begin{align}
+    \frac{\partial L(\bm{x}, D)}{\partial \beta'} &=
+    - \frac{K\delta''^2}{2\alpha'} - \frac{K\mu''^2}{2\alpha'}
+    + \frac{\mu''\sum_{k=1}^{K}y_{k}}{\alpha'}
+    - \frac{\alpha + \frac{K}{2}}{\beta'}
+    + \frac{\beta}{\alpha'} - \frac{2}{\alpha'}\beta'
+    - \frac{\sum_{k=1}^{K} y_{k}^2}{2\alpha'}
+    \nonumber \\
+    &= \frac{2\beta + 2\mu''\sum_{k=1}^{K}y_{k}
+    - K\delta''^2 - K\mu''^2
+    - \sum_{k=1}^{K} y_{k}^2}{2\alpha'}
+    - \frac{\alpha + \frac{K}{2}}{\beta'}
+    - \frac{2}{\alpha'}\beta'
+    \nonumber \\
+    &=
+    - \frac{2}{\alpha'}\beta'^2
+    + \frac{2\beta + 2\mu''\sum_{k=1}^{K}y_{k}
+    - K\delta''^2 - K\mu''^2
+    - \sum_{k=1}^{K} y_{k}^2}{2\alpha'}\beta'
+    - (\alpha + \frac{K}{2})
+    \nonumber \\
+    &=
+    - \frac{2}{\alpha'}\beta'^2
+    + \frac{2\beta + 2\mu''\sum_{k=1}^{K}y_{k}
+    - K(\delta''^2 + \mu''^2)
+    - \sum_{k=1}^{K} y_{k}^2}{2\alpha'}\beta'
+    - (\alpha + \frac{K}{2})
+    \nonumber
+\end{align}
+Again, we need to use the quadratic equation:
+\begin{align}
+    \beta' &= \frac{- \frac{2\beta + 2\mu''\sum_{k=1}^{K}y_{k} - K(\delta''^2 +
+    \mu''^2) - \sum_{k=1}^{K} y_{k}^{2}}{2\alpha'}}{-\frac{4}{\alpha'}}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    \pm
+    \frac{\sqrt{\frac{1}{4\alpha'^2}(2\beta + 2\mu''\sum_{k=1}^{K}y_{k} - K(\delta''^2 +
+    \mu''^2) - \sum_{k=1}^{K} y_{k}^{2})^2 - \frac{8}{\alpha'}(\alpha +
+    \frac{K}{2})}}
+    {-\frac{4}{\alpha'}}
+    \nonumber \\
+    &= \frac{2\beta + 2\mu''\sum_{k=1}^{K}y_{k} - K(\delta''^2 +
+    \mu''^2) - \sum_{k=1}^{K} y_{k}^{2}}{8}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    \pm
+    \sqrt{\frac{1}{64}(2\beta + 2\mu''\sum_{k=1}^{K}y_{k} - K(\delta''^2 +
+    \mu''^2) - \sum_{k=1}^{K} y_{k}^{2})^2 - \frac{1}{2}\alpha'(\alpha +
+    \frac{K}{2})}
+    \nonumber
+\end{align}
+Here also we know that $\beta' > 0$, so we choose to permit addition only:
+\begin{align}
+    \beta' &= \frac{2\beta + 2\mu''\sum_{k=1}^{K}y_{k} - K(\delta''^2 +
+    \mu''^2) - \sum_{k=1}^{K} y_{k}^{2}}{8}
+    \nonumber \\
+    &\quad\quad\quad\quad
+    +
+    \sqrt{\frac{1}{64}(2\beta + 2\mu''\sum_{k=1}^{K}y_{k} - K(\delta''^2 +
+    \mu''^2) - \sum_{k=1}^{K} y_{k}^{2})^2 - \frac{1}{2}\alpha'(\alpha +
+    \frac{K}{2})}
+    \nonumber
+\end{align}
+\end{appendices}
+\fi
+
+\printbibliography
+
+\end{document}
