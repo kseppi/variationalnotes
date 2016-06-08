@@ -67,7 +67,7 @@
 \sloppy
 \title{Variational Faculty Evaluations}
 \author{Nozomu Okuda}
-\date{June 6, 2016}
+\date{June 7, 2016}
 
 \setcounter{secnumdepth}{5}
 \makeatletter
@@ -87,36 +87,236 @@
 
 \section{Introduction}
 
-This document consists of my explanation for how variational inference on the
-faculty evaluations model is derived.  I rely on intuitions developed from
-writing my previous document \autocite{myvarlda} and from the sources cited
-there.  Another tutorial deriving a similar model can be found in
-\autocite{foxvartut}.
+This document consists of my explanation for how mean-field variational
+inference on the faculty evaluations model is derived.  Another tutorial
+deriving essentially the same model can be found in \autocite{foxvartut} and in
+\autocite{wikivar}.  This tutorial is different in that it derives the model
+with respect to variance instead of with respect to precision (which is the way
+the other two tutorials make their approach).
+
+While I have written another variational inference tutorial \autocite{myvarlda},
+I use a different approach here in deriving the update equations; in addition,
+the previous tutorial considers the very different model of latent Dirichlet
+allocation.\footnote{As it turns out, the approach I take for deriving the
+update equations for this faculty evaluations model is the approach Kevin Black
+takes in his variational tutorial for LDA \autocite{kb}.}
 
 I assume that readers of this document are familiar with basic probability
-theory, probabilistic graphical models, and mathematical notation.
+theory, probabilistic graphical models, and mathematical notation.  It may also
+be helpful to be familiar with Gibbs sampling.
 
 The impetus for this formulation is as an exercise for a Bayesian statistics
 class I am taking, taught by Dr. Kevin Seppi.
 
 \section{Variational Inference}
 
-We begin by reminding ourselves of the lower bound equation:
+\subsection{Main Ideas}
 
+Even if you do not understand anything else from this tutorial, at least keep
+these points in mind:
+
+\begin{itemize}
+    \item Variational inference is a method (like Gibbs sampling) for
+        approximating the joint distribution represented by a graphical model.
+    \item Variational inference makes simplifying assumptions on the graphical
+        model.
+    \item Tuning the parameters on the simplified model can lead to a model
+        close enough to the real model that we can use the simplified model
+        instead.
+    \item It takes multiple exposures to understand variational inference.
+\end{itemize}
+
+We begin our discussion by speaking in generalities.  We then apply the
+principles we consider to the faculty evaluations model.
+
+\subsection{Getting Close:  KL Divergence}
+
+Suppose that we have two probability distributions, $r$ and $s$.  How might we
+measure how similar the two are?
+
+Conveniently, people have already thought long and hard about this question, and
+their answer is a number called the Kullback-Leibler Divergence (KL
+Divergence).\footnote{KL Divergence is not a metric or distance, since the value
+from one distribution to another is not the same value as the other to the one.}
+KL Divergence is defined:
+\begin{align}\label{eq:kldivergence}
+    \KL(r(x)\parallel s(x)) &\triangleq \int_{-\infty}^{\infty} r(x)
+    \log{\frac{r(x)}{s(x)}}dx
+    \nonumber \\
+    &= \E_{r(x)}[\log \frac{r(x)}{s(x)}]
+    \nonumber \\
+    &= \E_{r(x)}[\log r(x)] - \E_{r(x)}[\log s(x)]
+\end{align}
+which we would read \enquote{the KL Divergence of $s$ from $r$}.
+
+Intuitively, KL Divergence adds up how different $s(x)$ is from $r(x)$ at each
+point along their domains.\footnote{There are some caveats to be aware of if you
+intend to implement KL Divergence in code; you can find most of them in
+\autocite{wikikl}.}  Fortuitously, the way to solve for this difference is the
+difference of two expectations.\footnote{If you are familiar with information
+theory, you might recognize that one of these terms is the negative of entropy.}
+
+\subsection{What We Care About:  The Lower Bound}
+
+Now suppose that the model we are interested in is $p$.  As promised, we are
+going to approximate it with a simpler model; let's call this simpler model $q$.
+Let's call our data $D$ and our unknown random variables $\bm{x}$.  From a
+machine learning standpoint, this means that we want to maximize $p(\bm{x}|D)$,
+the probability of the settings of our random variables given the data.
+
+Recall that what we want is for $q(\bm{x})$ to be as close as possible to
+$p(\bm{x}|D)$.  If we choose $q$ cleverly, it should be easy to find the
+settings $\bm{x}$ that maximize $q$; and if $q(\bm{x})$ is close to
+$p(\bm{x}|D)$, then we can hope that the $\bm{x}$ that maximizes $q(\bm{x})$ is
+the same $\bm{x}$ that maximizes $p(\bm{x}|D)$.  And we just talked about how to
+measure difference of distributions.  So we must want to minimize
+\begin{align}\label{eq:whatwewant}
+    \KL(q(\bm{x})\parallel p(\bm{x}|D)).
+\end{align}
+This looks interesting; let's look a little closer:
 \begin{align}
-    \log{p(D)} &\geq L(\bm{x}, D) \nonumber\\
-    L(\bm{x}, D) &= -\KL(q(\bm{x}) \parallel p(\bm{x}, D)) \nonumber\\
-    &= \E_{q}[\log{p(\bm{x}, D)}] - \E_{q}[\log{q(\bm{x})}]
-    \label{eq:lowerbound}
+    \intertext{Use definition of KL Divergence (Eq.~\ref{eq:kldivergence})}
+    \KL(q(\bm{x})\parallel p(\bm{x}|D))
+    &= \E_{q(\bm{x})}[\log q(\bm{x})] - \E_{q(\bm{x})}[\log p(\bm{x}|D)]
+    \nonumber \\
+    \intertext{Apply the definition of conditional probability}
+    &= \E_{q(\bm{x})}[\log q(\bm{x})] - \E_{q(\bm{x})}[\log
+    \frac{p(\bm{x},D)}{p(D)}]
+    \nonumber \\
+    \intertext{Use log rules and properties of expectations}
+    &= \E_{q(\bm{x})}[\log q(\bm{x})] - \E_{q(\bm{x})}[\log
+    p(\bm{x},D)] + \E_{q(\bm{x})}[\log p(D)]
+    \nonumber \\
+    \intertext{Apply some algebra}
+    &=  - (\E_{q(\bm{x})}[\log
+    p(\bm{x},D)] - \E_{q(\bm{x})}[\log q(\bm{x})]) + \E_{q(\bm{x})}[\log p(D)]
+    \nonumber \\
+    \intertext{Note that $p(D)$ has nothing to do with $\bm{x}$}
+    \label{eq:logofdata}
+    &=  - (\E_{q(\bm{x})}[\log
+    p(\bm{x},D)] - \E_{q(\bm{x})}[\log q(\bm{x})]) + \log p(D)
+\end{align}
+So minimizing Eq.~\ref{eq:whatwewant} is equivalent to minimizing
+Eq.~\ref{eq:logofdata}.  Note that the last term in Eq.~\ref{eq:logofdata} is
+the log probability of the data in our model of interest.  That certainly sounds
+like a stationary value.  So the only wiggle room we have is in the
+parenthesized expression.  And if we want to minimize all of
+Eq.~\ref{eq:logofdata}, then we want to maximize the effect of the parenthesized
+value on the term for the log probability of the data.  That parenthesized
+expression is important enough that we should give it a name.  Let's call it the
+lower bound:
+\begin{align}\label{eq:lowerbound}
+    L(\bm{x},D) &= \E_{q(\bm{x})}[\log p(\bm{x},D)]
+    - \E_{q(\bm{x})}[\log q(\bm{x})]
+\end{align}
+Once more:  minimizing the difference of our simplified model from our model of
+interest is the same as maximizing the lower bound.\footnote{And if you've been
+paying especially close attention, you probably noticed that the lower bound is
+the negative KL divergence of $p(\bm{x},D)$ from $q(\bm{x})$.}
+
+\subsection{Simplicity:  Mean Field Assumption}
+
+We've spent some time under the assumption that $q$ is simpler than $p$, but we
+haven't explicitly stated why.  For this tutorial, we make the mean field
+assumption for constructing our simplified model.\footnote{Why what we're about
+to do is called the mean field assumption is not entirely clear to me.}  The
+reason that $p$ is hard in general is that two (or more) unobserved nodes point
+into the same observed node.  Thus, influence flows between these unobserved
+nodes.  The mean field assumption says that this influence is minimal.  Thus,
+$q$ is like $p$ except that all arrows pointing into the observed node(s) are
+erased.  Mathematically, this means that $q$ is fully factorizable:
+\begin{align}\label{eq:q}
+    q(\bm{x}) &= \prod_{i=1}^{N} q(x_{i})
 \end{align}
 
-%TODO fill in and make fit
-Wikipedia \autocite{wikivar} tells me that there is another way to solve for the
-update equations.  With further insight from Blei's notes
-\autocite{bleinotesvar}, I shall undertake a new strategy.  Instead of solving
-for the derivative directly, we will accept Blei's derivations and use Eq.~25 of
-\autocite{bleinotesvar} to solve for the update equations.  Conveniently, we've
-already solved for part of the formula, so let's see what else we need to do.
+\subsection{Maximizing the Lower Bound}
+
+So now that we know that we want to maximize the lower bound
+(Eq.~\ref{eq:lowerbound}), how do we do that?
+
+Again, other people have answered the riddle for us.\footnote{If my explanation
+is not adequate, consider looking at \autocite{wikivar} or
+\autocite{bleinotesvar} for more exposure.  I especially recommend
+\autocite{bleinotesvar}, starting in section 6:  Mean field variational
+inference, since that is where came to understand these concepts.}  Let's think
+about the lower bound in more depth:
+\begin{align}
+    L(\bm{x},D) &= \E_{q(\bm{x})}[\log p(\bm{x},D)]
+    - \E_{q(\bm{x})}[\log q(\bm{x})]
+    \nonumber \\
+    \intertext{Mean field assumption}
+    &= \E_{q(\bm{x})}[\log p(\bm{x},D)]
+    - \E_{q(\bm{x})}[\log \prod_{i=1}^{N} q(x_{i})]
+    \nonumber \\
+    \intertext{Apply chain rule to $p$}
+    &= \E_{q(\bm{x})}[\log (p(D)\prod_{j=1}^{N}p(x_{j}|\bm{x}_{1:(j-1)}, D))]
+    - \E_{q(\bm{x})}[\log \prod_{i=1}^{N} q(x_{i})]
+    \nonumber \\
+    \intertext{Log of products is sum of logs; also apply expectation properties}
+    &= \log p(D) + \sum_{j=1}^{N} \E_{q(\bm{x})}[\log p(x_{j}|\bm{x}_{1:(j-1)},D)]
+    - \sum_{i=1}^{N} \E_{q(x_{i})}[\log q(x_{i})]
+\end{align}
+
+We now have the lower bound in a form by which we can think about each unknown
+variable individually.  The strategy we will use is to maximize the lower bound
+by maximizing one component at a time.  This strategy is called coordinate-wise
+ascent.
+\begin{align}
+    L(\bm{x},D)
+    &= \log p(D) + \sum_{j=1}^{N} \E_{q(\bm{x})}[\log p(x_{j}|\bm{x}_{1:(j-1)},D)]
+    - \sum_{i=1}^{N} \E_{q(x_{i})}[\log q(x_{i})]
+    \nonumber \\
+    \intertext{Consider only the terms in the lower bound that contain the
+    current variable of interest, $x_k$; the other terms are irrelevant, since
+    we will be taking the derivative of the lower bound with respect to $x_k$ in
+    order to maximize; note that because we can choose the order in which chain
+    rule takes effect, we will always choose $x_k$ to be chosen last, forcing
+    all other terms in the chain to be constant with respect to $x_k$}
+    L_{k} &= \E_{q(\bm{x})}[\log p(x_{k}|\bm{x}_{\neg k},D)]
+    - \E_{q(x_{k})}[\log q(x_{k})]
+    \nonumber \\
+    \intertext{Apply definition of expectation; note that $\E_{\neg q(x_{k})}$
+    means expectation is over all $q(x_{i})$ except for $q(x_{k})$}
+    L_{k} &= \int q(x_{k})\E_{\neg q(x_{k})}[\log p(x_{k}|\bm{x}_{\neg k},D)]dx_{k}
+    - \int q(x_{k})\log q(x_{k})dx_{k}
+    \nonumber \\
+    \intertext{Take the derivative with respect to $x_{k}$ (I'm copying this
+    step from \autocite{bleinotesvar} without fully understanding why there is a
+    -1 in there, but I trust Blei's notes)}
+    \frac{\partial L_{k}}{\partial x_{k}}
+    &= \E_{\neg q(x_{k})}[\log p(x_{k}|\bm{x}_{\neg k},D)]
+    - \log q(x_{k}) - 1
+\end{align}
+
+With the derivative in hand, we can maximize by setting the derivative equal to
+zero and solving for the component we are trying to maximize.
+\begin{align}
+    \frac{\partial L_{k}}{\partial x_{k}}
+    &= \E_{\neg q(x_{k})}[\log p(x_{k}|\bm{x}_{\neg k},D)]
+    - \log q(x_{k}) - 1 = 0
+    \nonumber \\
+    \log q(x_{k}) &= \E_{\neg q(x_{k})}[\log p(x_{k}|\bm{x}_{\neg k},D)] - 1
+    \nonumber \\
+    q(x_{k}) &\propto \exp{(\E_{\neg q(x_{k})}[\log p(x_{k}|\bm{x}_{\neg k},D)])}
+    \nonumber \\
+    \intertext{Note that the given portion is constant with respect to $x_{k}$,
+    so reflecting on the definition of conditional probability lets us make the
+    following assertion}
+    q(x_{k}) &\propto \exp{(\E_{\neg q(x_{k})}[\log p(x_{k},\bm{x}_{\neg k},D)])}
+\end{align}
+That's right:  we're trying to maximize $q(x_{k})$.  Reflect on what we've gone
+through up to this point, and it should eventually become clear why maximizing
+$q(x_{k})$ will do what we want.
+
+Maximizing $q(x_{k})$ is a matter of recognizing its form (i.e., which
+distribution it is) and then setting its parameters correctly.\footnote{You
+might have noticed a weakness to this approach:  there is an assumption that
+$q(x_{k})$ is going to be a member of the exponential family of probability
+distributions that we will be able to work with; that also entails the
+assumption that we're conveniently working with conjugate pairs.  As I don't
+have experience deriving variational inference for non-conjugate pairs, I can't
+make much more comment on the matter.}  It's hard to explain this part without
+an example, so let's move on to our example.
 
 \section{Faculty Evaluations Model}
 
@@ -132,7 +332,7 @@ We define the faculty evaluations model as
 \end{equation}
 where $y_{k}$ is an observed score, $\mu$ is the mean of the distribution which
 generates the scores, and $\delta$ is the variance.  Note that the Normal
-distribution is parameterized by mean and variance; the inverse gamma
+distribution is parameterized by mean and variance; the Inverse Gamma
 distribution is parameterized by $\alpha$ and $\beta$.
 
 The graphical model looks as follows:
@@ -236,6 +436,7 @@ Let's start with $\mu$:
     - \frac{-\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}{\delta'}\mu
     ))}
     \nonumber \\
+    \intertext{Relying on completing the square:}
     &\propto
     \exp{(-\frac{1+\E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K}{2\delta'}
     (\mu
@@ -307,7 +508,7 @@ Now we need $q(\delta)$
     ])}
 \end{align}
 Since $q(\delta)$ is a pdf, and we know that it is proportional to the kernel of
-an inverse gamma distribution, we can see that
+an Inverse Gamma distribution, we can see that
 \begin{align}\label{eq:qdelta}
     q(\delta) = \text{InverseGamma}\left(\alpha + \frac{K}{2},
     \frac{-2\beta + \sum_{k=1}^{K} y_{k}^{2} - 2 \E_{\neg q(\delta)}[\mu]
@@ -326,7 +527,7 @@ maximization, and I hear that there is a proof that this method converges.
 
 Let's define some parameters for our distributions.  Let $m$ be the mean of
 $q(\mu)$ and $v$ be the variance of $q(\mu)$.  Note that $q(\mu)$ is a Normal
-distribution.  Conveniently, smart people \autocite{gaussian} figured out some
+distribution.  Conveniently, other people \autocite{gaussian} figured out some
 expectations that we need, namely
 \begin{align}
     \E_{q(\mu)}[\mu] &= m \\
@@ -335,7 +536,7 @@ expectations that we need, namely
 
 As for $q(\delta)$, let $a$ be the $\alpha$ parameter for $q(\delta)$ and $b$ be
 the $\beta$ parameter for $q(\delta)$.  Note that $q(\delta)$ is an Inverse
-Gamma distribution.  Conveniently, smart people \autocite{invgamma} figured out
+Gamma distribution.  Conveniently, other people \autocite{invgamma} figured out
 some expectations that we need, namely
 \begin{align}
     \E_{q(\delta)}[\frac{1}{\delta}] = \frac{b}{a}.
@@ -718,6 +919,7 @@ separating terms for convenience later:
 \end{align}
 This is the formulation of the lower bound we will use in the following section.
 %TODO Fix E[\mu^2] (it should be \mu^2 + \delta)
+%TODO Fix E[1/\delta] (it should be alpha' / beta')
 
 \subsection{Update Rules}
 

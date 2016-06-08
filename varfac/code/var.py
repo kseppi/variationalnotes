@@ -66,7 +66,7 @@ def _run():
         # b  = (-2*beta + sum(data^2) - 2*m*sum(data) + K*(m^2+v)) / 2
         b = -beta + half_data_sum2 - (m*data_sum) + (data_len*((m**2)+v)/2)
         print('b', b)
-    print('# Variational mean, variance:', m, b/a)
+    print('# Variational mean, variance:', m, b/(a-1))
     print('# Sample mean, variance:', np.mean(data), np.var(data))
 
 if __name__ == '__main__':
