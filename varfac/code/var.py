@@ -39,7 +39,8 @@ def _run():
     """
     data = get_data()
     data_len = len(data)
-    NUM_ITERS = 100
+    print('K', data_len)
+    NUM_ITERS = 10
     # parameters for true prior
     mu = 5.0
     sigma2 = 1/9
@@ -48,7 +49,9 @@ def _run():
     # constants used at every iteration
     ksigma2 = data_len * sigma2
     data_sum = np.sum(data)
+    print('sum of data', data_sum)
     half_data_sum2 = (data_sum ** 2) / 2
+    print('half sum of data^2', half_data_sum2)
     # parameters for approximation
     m = 5.0
     v = 1/9

@@ -67,7 +67,7 @@
 \sloppy
 \title{Variational Faculty Evaluations}
 \author{Nozomu Okuda}
-\date{June 7, 2016}
+\date{June 8, 2016}
 
 \setcounter{secnumdepth}{5}
 \makeatletter
@@ -134,11 +134,12 @@ principles we consider to the faculty evaluations model.
 Suppose that we have two probability distributions, $r$ and $s$.  How might we
 measure how similar the two are?
 
-Conveniently, people have already thought long and hard about this question, and
-their answer is a number called the Kullback-Leibler Divergence (KL
-Divergence).\footnote{KL Divergence is not a metric or distance, since the value
-from one distribution to another is not the same value as the other to the one.}
-KL Divergence is defined:
+Conveniently, people have already thought long and hard about this question.
+They suggest measuring the difference of $s$ from $r$ instead.  So the smaller
+the difference, the more similar $s$ is to $r$.  This difference is called the
+Kullback-Leibler Divergence (KL Divergence).\footnote{KL Divergence is not a
+metric or distance, since the value from one distribution to another is not the
+same value as the other to the one.} KL Divergence is defined:
 \begin{align}\label{eq:kldivergence}
     \KL(r(x)\parallel s(x)) &\triangleq \int_{-\infty}^{\infty} r(x)
     \log{\frac{r(x)}{s(x)}}dx
@@ -169,29 +170,29 @@ $p(\bm{x}|D)$.  If we choose $q$ cleverly, it should be easy to find the
 settings $\bm{x}$ that maximize $q$; and if $q(\bm{x})$ is close to
 $p(\bm{x}|D)$, then we can hope that the $\bm{x}$ that maximizes $q(\bm{x})$ is
 the same $\bm{x}$ that maximizes $p(\bm{x}|D)$.  And we just talked about how to
-measure difference of distributions.  So we must want to minimize
+measure the difference of one distribution from another.  So let's minimize
 \begin{align}\label{eq:whatwewant}
     \KL(q(\bm{x})\parallel p(\bm{x}|D)).
 \end{align}
 This looks interesting; let's look a little closer:
 \begin{align}
-    \intertext{Use definition of KL Divergence (Eq.~\ref{eq:kldivergence})}
+    \intertext{Use definition of KL Divergence (Eq.~\ref{eq:kldivergence}):}
     \KL(q(\bm{x})\parallel p(\bm{x}|D))
     &= \E_{q(\bm{x})}[\log q(\bm{x})] - \E_{q(\bm{x})}[\log p(\bm{x}|D)]
     \nonumber \\
-    \intertext{Apply the definition of conditional probability}
+    \intertext{Apply the definition of conditional probability:}
     &= \E_{q(\bm{x})}[\log q(\bm{x})] - \E_{q(\bm{x})}[\log
     \frac{p(\bm{x},D)}{p(D)}]
     \nonumber \\
-    \intertext{Use log rules and properties of expectations}
+    \intertext{Use log rules and properties of expectations:}
     &= \E_{q(\bm{x})}[\log q(\bm{x})] - \E_{q(\bm{x})}[\log
     p(\bm{x},D)] + \E_{q(\bm{x})}[\log p(D)]
     \nonumber \\
-    \intertext{Apply some algebra}
+    \intertext{Apply some algebra:}
     &=  - (\E_{q(\bm{x})}[\log
     p(\bm{x},D)] - \E_{q(\bm{x})}[\log q(\bm{x})]) + \E_{q(\bm{x})}[\log p(D)]
     \nonumber \\
-    \intertext{Note that $p(D)$ has nothing to do with $\bm{x}$}
+    \intertext{Note that $p(D)$ has nothing to do with $\bm{x}$:}
     \label{eq:logofdata}
     &=  - (\E_{q(\bm{x})}[\log
     p(\bm{x},D)] - \E_{q(\bm{x})}[\log q(\bm{x})]) + \log p(D)
@@ -224,7 +225,8 @@ reason that $p$ is hard in general is that two (or more) unobserved nodes point
 into the same observed node.  Thus, influence flows between these unobserved
 nodes.  The mean field assumption says that this influence is minimal.  Thus,
 $q$ is like $p$ except that all arrows pointing into the observed node(s) are
-erased.  Mathematically, this means that $q$ is fully factorizable:
+erased.\footnote{In fact, $q$ doesn't even have nodes for $D$.}  Mathematically,
+this means that $q$ is fully factorizable:
 \begin{align}\label{eq:q}
     q(\bm{x}) &= \prod_{i=1}^{N} q(x_{i})
 \end{align}
@@ -238,21 +240,22 @@ Again, other people have answered the riddle for us.\footnote{If my explanation
 is not adequate, consider looking at \autocite{wikivar} or
 \autocite{bleinotesvar} for more exposure.  I especially recommend
 \autocite{bleinotesvar}, starting in section 6:  Mean field variational
-inference, since that is where came to understand these concepts.}  Let's think
-about the lower bound in more depth:
+inference, since that is where I came to understand these concepts.}  Let's
+think about the lower bound in more depth:
 \begin{align}
     L(\bm{x},D) &= \E_{q(\bm{x})}[\log p(\bm{x},D)]
     - \E_{q(\bm{x})}[\log q(\bm{x})]
     \nonumber \\
-    \intertext{Mean field assumption}
+    \intertext{Make the mean field assumption:}
     &= \E_{q(\bm{x})}[\log p(\bm{x},D)]
     - \E_{q(\bm{x})}[\log \prod_{i=1}^{N} q(x_{i})]
     \nonumber \\
-    \intertext{Apply chain rule to $p$}
+    \intertext{Apply chain rule to $p$:}
     &= \E_{q(\bm{x})}[\log (p(D)\prod_{j=1}^{N}p(x_{j}|\bm{x}_{1:(j-1)}, D))]
     - \E_{q(\bm{x})}[\log \prod_{i=1}^{N} q(x_{i})]
     \nonumber \\
-    \intertext{Log of products is sum of logs; also apply expectation properties}
+    \intertext{Log of products is sum of logs; also apply expectation
+    properties:}
     &= \log p(D) + \sum_{j=1}^{N} \E_{q(\bm{x})}[\log p(x_{j}|\bm{x}_{1:(j-1)},D)]
     - \sum_{i=1}^{N} \E_{q(x_{i})}[\log q(x_{i})]
 \end{align}
@@ -270,19 +273,19 @@ ascent.
     current variable of interest, $x_k$; the other terms are irrelevant, since
     we will be taking the derivative of the lower bound with respect to $x_k$ in
     order to maximize; note that because we can choose the order in which chain
-    rule takes effect, we will always choose $x_k$ to be chosen last, forcing
-    all other terms in the chain to be constant with respect to $x_k$}
+    rule takes effect, we will always choose $x_k$ such that
+    all other terms in the chain are constant with respect to $x_k$:}
     L_{k} &= \E_{q(\bm{x})}[\log p(x_{k}|\bm{x}_{\neg k},D)]
     - \E_{q(x_{k})}[\log q(x_{k})]
     \nonumber \\
     \intertext{Apply definition of expectation; note that $\E_{\neg q(x_{k})}$
-    means expectation is over all $q(x_{i})$ except for $q(x_{k})$}
+    means expectation is over all $q(x_{i})$ except for $q(x_{k})$:}
     L_{k} &= \int q(x_{k})\E_{\neg q(x_{k})}[\log p(x_{k}|\bm{x}_{\neg k},D)]dx_{k}
     - \int q(x_{k})\log q(x_{k})dx_{k}
     \nonumber \\
     \intertext{Take the derivative with respect to $x_{k}$ (I'm copying this
     step from \autocite{bleinotesvar} without fully understanding why there is a
-    -1 in there, but I trust Blei's notes)}
+    -1 in there, but I trust Blei's notes):}
     \frac{\partial L_{k}}{\partial x_{k}}
     &= \E_{\neg q(x_{k})}[\log p(x_{k}|\bm{x}_{\neg k},D)]
     - \log q(x_{k}) - 1
@@ -301,7 +304,7 @@ zero and solving for the component we are trying to maximize.
     \nonumber \\
     \intertext{Note that the given portion is constant with respect to $x_{k}$,
     so reflecting on the definition of conditional probability lets us make the
-    following assertion}
+    following assertion:}
     q(x_{k}) &\propto \exp{(\E_{\neg q(x_{k})}[\log p(x_{k},\bm{x}_{\neg k},D)])}
 \end{align}
 That's right:  we're trying to maximize $q(x_{k})$.  Reflect on what we've gone
@@ -400,6 +403,8 @@ Let's start with $\mu$:
     - \frac{1}{2\delta} \sum_{k=1}^{K} (y_{k} - \mu)^2
     + C_p])}
     \nonumber \\
+    \intertext{Anything constant with respect to $\mu$ will be a constant we can
+    ignore in the constant of proportionality:}
     &\propto \exp{(\E_{\neg q(\mu)}[-\frac{(\mu-\mu')^2}{2\delta'}
     - \frac{1}{2\delta} \sum_{k=1}^{K} (y_{k} - \mu)^2])}
     \nonumber \\
@@ -436,7 +441,8 @@ Let's start with $\mu$:
     - \frac{-\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}{\delta'}\mu
     ))}
     \nonumber \\
-    \intertext{Relying on completing the square:}
+    \intertext{Complete the square and let the constant of proportionality take
+    the constant:}
     &\propto
     \exp{(-\frac{1+\E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K}{2\delta'}
     (\mu
@@ -445,15 +451,15 @@ Let's start with $\mu$:
     {1 + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K})^2
     )}
 \end{align}
-Since $q(\mu)$ is a pdf, and we know that it is proportional to the kernel of a
-Normal distribution, we can see that
+Since $q(\mu)$ is a pdf, and since we know that it is proportional to the kernel
+of a Normal distribution, we can see that
 \begin{align}\label{eq:qmu}
     q(\mu) = N\left(\frac{-\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}] \delta' \sum_{k=1}^{K}
     y_{k}}{1 + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K}, \frac{\delta'}{1 + \E_{\neg
     q(\mu)}[\frac{1}{\delta}]\delta'K}\right).
 \end{align}
 
-Now we need $q(\delta)$
+Now we need $q(\delta)$:
 \begin{align}
     q(\delta) &\propto \exp{(\E_{\neg q(\delta)}[\log p(\delta, \mu, y_{1:K})])}
     \nonumber \\
@@ -465,14 +471,15 @@ Now we need $q(\delta)$
     - \frac{1}{2\delta} \sum_{k=1}^{K} (y_{k} - \mu)^2
     + C_p])}
     \nonumber \\
-    &= \exp{(
-    - \frac{1}{2\delta'}\E_{\neg q(\delta)}[(\mu - \mu')^2]
+    \intertext{Anything constant with respect to $\delta$ will be a constant we can
+    ignore in the constant of proportionality:}
+    &\propto \exp{(\E_{\neg q(\delta)}[
     - (\alpha+1)\log{(\delta)} + \frac{\beta}{\delta}
     - \frac{K}{2}\log{(\delta)}
-    - \frac{1}{2\delta} \E_{\neg q(\delta)}[\sum_{k=1}^{K} (y_{k} - \mu)^2
+    - \frac{1}{2\delta} \sum_{k=1}^{K} (y_{k} - \mu)^2
     ])}
     \nonumber \\
-    &\propto \exp{(
+    &= \exp{(
     - (\alpha+1)\log{(\delta)} + \frac{\beta}{\delta}
     - \frac{K}{2}\log{(\delta)}
     - \frac{1}{2\delta} \E_{\neg q(\delta)}[\sum_{k=1}^{K} (y_{k} - \mu)^2
@@ -492,23 +499,23 @@ Now we need $q(\delta)$
     &= \delta^{-(\alpha+\frac{K}{2}) - 1}\exp{(
     \frac{2\beta
     - \E_{\neg q(\delta)}[\sum_{k=1}^{K} (y_{k}^2 -2y_{k}\mu +
-    \mu^2)}{2\delta}
-    ])}
+    \mu^2)]}{2\delta}
+    )}
     \nonumber \\
     &= \delta^{-(\alpha+\frac{K}{2}) - 1}\exp{(
     \frac{2\beta
     - \sum_{k=1}^{K} y_{k}^2 + \sum_{k=1}^{K}2y_{k}
     \E_{\neg q(\delta)}[\mu] - K\E_{\neg q(\delta)}[\mu^2]}{2\delta}
-    ])}
+    )}
     \nonumber \\
     &= \delta^{-(\alpha+\frac{K}{2}) - 1}\exp{(
     -\frac{-2\beta
     + \sum_{k=1}^{K} y_{k}^2 - 2\E_{\neg q(\delta)}[\mu] \sum_{k=1}^{K}y_{k}
     + K\E_{\neg q(\delta)}[\mu^2]}{2\delta}
-    ])}
+    )}
 \end{align}
-Since $q(\delta)$ is a pdf, and we know that it is proportional to the kernel of
-an Inverse Gamma distribution, we can see that
+Since $q(\delta)$ is a pdf, and since we know that it is proportional to the
+kernel of an Inverse Gamma distribution, we can see that
 \begin{align}\label{eq:qdelta}
     q(\delta) = \text{InverseGamma}\left(\alpha + \frac{K}{2},
     \frac{-2\beta + \sum_{k=1}^{K} y_{k}^{2} - 2 \E_{\neg q(\delta)}[\mu]
@@ -543,7 +550,7 @@ some expectations that we need, namely
 \end{align}
 
 One last note to consider:  When confronted with the notation
-$\E_{q(\neg q(\mu))}$, it is equivalent to the notation $\E_{q(\delta)}$ for
+$\E_{\neg q(\mu)}$, it is equivalent to the notation $\E_{q(\delta)}$ for
 the approximate model, since $q = q(\mu)q(\delta)$.  Likewise, $\E_{\neg
 q(\delta)} = \E_{q(\mu)}$.
 
