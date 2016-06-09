@@ -50,7 +50,7 @@ def _run():
     ksigma2 = data_len * sigma2
     data_sum = np.sum(data)
     print('sum of data', data_sum)
-    half_data_sum2 = (data_sum ** 2) / 2
+    half_data_sum2 = (np.array(data) ** 2).sum() / 2
     print('half sum of data^2', half_data_sum2)
     # parameters for approximation
     m = 5.0
@@ -66,8 +66,8 @@ def _run():
         v = sigma2 / (1 + (b_div_a * ksigma2))
         print('v', v)
         # a = alpha + K/2 <- note that a is not dependent on m, v, or b
-        # b  = (-2*beta + sum(data^2) - 2*m*sum(data) + K*(m^2+v)) / 2
-        b = -beta + half_data_sum2 - (m*data_sum) + (data_len*((m**2)+v)/2)
+        # b  = (2*beta + sum(data^2) - 2*m*sum(data) + K*(m^2+v)) / 2
+        b = beta + half_data_sum2 - (m*data_sum) + (data_len*((m**2)+v)/2)
         print('b', b)
     print('# Variational mean, variance:', m, b/(a-1))
     print('# Sample mean, variance:', np.mean(data), np.var(data))
