@@ -114,6 +114,9 @@ class I am taking, taught by Dr. Kevin Seppi.  After presenting a previous
 version of this document in class, the students pointed out errors.  Thanks to
 them for helping me fix the document.
 
+This document was last updated on July 14, 2016, in order to clear up the
+derivation of the form of $q(x_k)$ and to fix a few mistakes.
+
 \section{Variational Inference}
 
 \subsection{Main Ideas}
@@ -163,177 +166,180 @@ intend to implement KL Divergence in code; you can find most of them in
 difference of two expectations.\footnote{If you are familiar with information
 theory, you might recognize that one of these terms is the negative of entropy.}
 
-\subsection{What We Care About:  The Lower Bound}
+\subsection{Beginning the Derivation}
 
 Now suppose that the model we are interested in is $p$.  As promised, we are
 going to approximate it with a simpler model; let's call this simpler model $q$.
 Let's call our data $D$ and our unknown random variables $\vec{x}$.  From a
 machine learning standpoint, this means that we want to maximize $p(\vec{x}|D)$,
-the probability of the settings of our random variables given the data.
-
-Recall that what we want is for $q(\vec{x})$ to be as close as possible to
-$p(\vec{x}|D)$.  If we choose $q$ cleverly, it should be easy to find the
-settings $\vec{x}$ that maximize $q$; and if $q(\vec{x})$ is close to
-$p(\vec{x}|D)$, then we can hope that the $\vec{x}$ that maximizes $q(\vec{x})$ is
-the same $\vec{x}$ that maximizes $p(\vec{x}|D)$.  And we just talked about how to
-measure the difference of one distribution from another.  So let's minimize
-\begin{align}\label{eq:whatwewant}
-    \KL(q(\vec{x})\parallel p(\vec{x}|D)).
-\end{align}
-This looks interesting; let's look a little closer:
-\begin{align}
-    \intertext{Use definition of KL Divergence (Eq.~\ref{eq:kldivergence}):}
-    \KL(q(\vec{x})\parallel p(\vec{x}|D))
-    &= \E_{q(\vec{x})}[\log q(\vec{x})] - \E_{q(\vec{x})}[\log p(\vec{x}|D)]
-    \nonumber \\
-    \intertext{Apply the definition of conditional probability:}
-    &= \E_{q(\vec{x})}[\log q(\vec{x})] - \E_{q(\vec{x})}[\log
-    \frac{p(\vec{x},D)}{p(D)}]
-    \nonumber \\
-    \intertext{Use log rules and properties of expectations:}
-    &= \E_{q(\vec{x})}[\log q(\vec{x})] - \E_{q(\vec{x})}[\log
-    p(\vec{x},D)] + \E_{q(\vec{x})}[\log p(D)]
-    \nonumber \\
-    \intertext{Apply some algebra:}
-    &=  - (\E_{q(\vec{x})}[\log
-    p(\vec{x},D)] - \E_{q(\vec{x})}[\log q(\vec{x})]) + \E_{q(\vec{x})}[\log p(D)]
-    \nonumber \\
-    \intertext{Note that $p(D)$ has nothing to do with $\vec{x}$:}
-    \label{eq:logofdata}
-    &=  - (\E_{q(\vec{x})}[\log
-    p(\vec{x},D)] - \E_{q(\vec{x})}[\log q(\vec{x})]) + \log p(D)
-\end{align}
-So minimizing Eq.~\ref{eq:whatwewant} is equivalent to minimizing
-Eq.~\ref{eq:logofdata}.  Note that the last term in Eq.~\ref{eq:logofdata} is
-the log probability of the data in our model of interest.  That certainly sounds
-like a stationary value.  So the only wiggle room we have is in the
-parenthesized expression.  And if we want to minimize all of
-Eq.~\ref{eq:logofdata}, then we want to maximize the effect of the parenthesized
-value on the term for the log probability of the data.  That parenthesized
-expression is important enough that we should give it a name.  Let's call it the
-lower bound:
-\begin{align}\label{eq:lowerbound}
-    L(\vec{x},D) &= \E_{q(\vec{x})}[\log p(\vec{x},D)]
-    - \E_{q(\vec{x})}[\log q(\vec{x})]
-\end{align}
-Once more:  minimizing the difference of our simplified model from our model of
-interest is the same as maximizing the lower bound.\footnote{And if you've been
-paying especially close attention, you probably noticed that the lower bound is
-the negative KL divergence of $p(\vec{x},D)$ from $q(\vec{x})$.}
+the probability of the settings of our random variables given the data.  It
+turns out that maximizing $p(\vec{x}|D)$ is hard.
 
 \subsection{Simplicity:  Mean Field Assumption}
 
-We've spent some time under the assumption that $q$ is simpler than $p$, but we
-haven't explicitly stated why.  For this tutorial, we make the mean field
-assumption for constructing our simplified model.\footnote{Why what we're about
-to do is called the mean field assumption is not entirely clear to me.}  The
-reason that $p$ is hard in general is that two (or more) unobserved nodes point
-into the same observed node (see, for example, Fig.~\ref{fig:pmodel}).  Thus,
-influence flows between these unobserved nodes.  The mean field assumption says
-that this influence is minimal.  Thus, $q$ is like $p$ except that all arrows
-pointing into the observed node(s) are erased.\footnote{In fact, $q$ doesn't
-even have nodes for $D$.}  Mathematically, this means that $q$ is fully
-factorizable:
+So now you might ask how $q$ is simpler than $p$.  For this tutorial, we make
+the mean field assumption for constructing our simplified model.\footnote{Why
+what we're about to do is called the mean field assumption is not entirely clear
+to me.}  The reason that $p$ is hard in general is that two (or more) unobserved
+nodes point into the same observed node (see, for example,
+Fig.~\ref{fig:pmodel}).  Thus, influence flows between these unobserved nodes.
+The mean field assumption says that this influence is minimal.  Thus, $q$ is
+like $p$ except that all arrows pointing into the observed node(s) are
+erased.\footnote{In fact, $q$ doesn't even have nodes for $D$.}  Mathematically,
+this means that $q$ is fully factorizable:
 \begin{align}\label{eq:q}
     q(\vec{x}) &= \prod_{i=1}^{N} q(x_{i})
 \end{align}
 An example of a graphical model under the mean field assumption is in
 Fig.~\ref{fig:qmodel}
 
-\subsection{Maximizing the Lower Bound}
+\subsection{Continuing the Derivation}
 
-So now that we know that we want to maximize the lower bound
-(Eq.~\ref{eq:lowerbound}), how do we do that?
-
-Again, other people have answered the riddle for us.\footnote{If my explanation
-is not adequate, consider looking at \autocite{wikivar} or
-\autocite{bleinotesvar} for more exposure.  I especially recommend
-\autocite{bleinotesvar}, starting in section 6:  Mean field variational
-inference, since that is where I came to understand these concepts.}  Let's
-think about the lower bound in more depth:
+Recall that what we want is for $q(\vec{x})$ to be as close as possible to
+$p(\vec{x}|D)$.  So let's minimize
 \begin{align}
-    L(\vec{x},D) &= \E_{q(\vec{x})}[\log p(\vec{x},D)]
-    - \E_{q(\vec{x})}[\log q(\vec{x})]
+    \KL(q(\vec{x})\parallel p(\vec{x}|D)).&
     \nonumber \\
-    \intertext{Make the mean field assumption:}
-    &= \E_{q(\vec{x})}[\log p(\vec{x},D)]
-    - \E_{q(\vec{x})}[\log \prod_{i=1}^{N} q(x_{i})]
+    \intertext{In an ideal world, we would like}
+    \KL(q(\vec{x})\parallel p(\vec{x}|D)) &= 0.
     \nonumber \\
-    \intertext{Apply chain rule to $p$:}
-    &= \E_{q(\vec{x})}[\log (p(D)\prod_{j=1}^{N}p(x_{j}|\vec{x}_{1:(j-1)}, D))]
-    - \E_{q(\vec{x})}[\log \prod_{i=1}^{N} q(x_{i})]
-    \nonumber \\
-    \intertext{Log of products is sum of logs; also note that
-    $\E_{q(x_{j})}[\log q(x_{i})] = \log(q(x_{i}))$ when $i \neq j$ and that
-    $\E_{q(\vec{x})} = \E_{\prod q(x_{i})} = \E_{q(x_1)}[\E_{q(x_2)}[\cdots]]$:}
-    &= \log p(D) + \sum_{j=1}^{N} \E_{q(\vec{x})}[\log p(x_{j}|\vec{x}_{1:(j-1)},D)]
-    - \sum_{i=1}^{N} \E_{q(x_{i})}[\log q(x_{i})]
+    \intertext{But accepting reality, we can allow for some constant $C$ which will be the
+    closest we can get $q(\vec{x})$ to $p(\vec{x}|D)$:}
+    \KL(q(\vec{x})\parallel p(\vec{x}|D)) &= C.
 \end{align}
 
-We now have the lower bound in a form by which we can think about each unknown
-variable individually.  The strategy we will use is to maximize the lower bound
-by maximizing one component at a time.
-
-This strategy is called coordinate-wise ascent.  Let's copy the lower bound
-equation down again:
+Let's put in the definition of KL Divergence:
 \begin{align}
-    L(\vec{x},D)
-    &= \log p(D) + \sum_{j=1}^{N} \E_{q(\vec{x})}[\log p(x_{j}|\vec{x}_{1:(j-1)},D)]
-    - \sum_{i=1}^{N} \E_{q(x_{i})}[\log q(x_{i})]
-    \nonumber \\
-    \intertext{Consider only the terms in the lower bound that contain the
-    current variable of interest, $x_k$; the other terms are irrelevant, since
-    we will be taking the derivative of the lower bound with respect to $q(x_k)$
-    in order to maximize; note that because we can choose the order in which
-    chain rule takes effect, we will always choose $x_k$ such that
-    all other terms in the chain are constant with respect to $x_k$ (i.e.,
-    $p(\vec{x}) = p(x_{k}|x_{\neg k})p(x_{1}|x_{\neg {k, 1}})\cdots$):}
-    L_{k} &= \E_{q(\vec{x})}[\log p(x_{k}|\vec{x}_{\neg k},D)]
-    - \E_{q(x_{k})}[\log q(x_{k})]
-    \nonumber \\
-    \intertext{Apply definition of expectation; note that $\E_{\neg q(x_{k})}$
-    means expectation is over all $q(x_{i})$ except for $q(x_{k})$:}
-    L_{k} &= \int q(x_{k})\E_{\neg q(x_{k})}[\log p(x_{k}|\vec{x}_{\neg k},D)]dx_{k}
-    - \int q(x_{k})\log q(x_{k})dx_{k}
-    \nonumber \\
-    \intertext{Take the derivative with respect to $q(x_{k})$ (I'm copying this
-    step from \autocite{bleinotesvar} without fully understanding how to take
-    such a derivative, but I trust Blei's notes):}
-    \frac{\partial L_{k}}{\partial q(x_{k})}
-    &= \E_{\neg q(x_{k})}[\log p(x_{k}|\vec{x}_{\neg k},D)]
-    - \log q(x_{k}) - 1
+    \E_{q(\vec{x})}[\log q(\vec{x})] - \E_{q(\vec{x})}[\log p(\vec{x}|D)] = C.
+    \nonumber
 \end{align}
 
-With the derivative in hand, we can maximize by setting the derivative equal to
-zero and solving for the component we are trying to maximize.
+And now, we do algebra.
 \begin{align}
-    \frac{\partial L_{k}}{\partial q(x_{k})}
-    &= \E_{\neg q(x_{k})}[\log p(x_{k}|\vec{x}_{\neg k},D)]
-    - \log q(x_{k}) - 1 = 0
+    \E_{q(\vec{x})}[\log q(\vec{x})] &= C + \E_{q(\vec{x})}[\log p(\vec{x}|D)]
     \nonumber \\
-    \log q(x_{k}) &= \E_{\neg q(x_{k})}[\log p(x_{k}|\vec{x}_{\neg k},D)] - 1
+    \intertext{Apply the mean field assumption:}
+    \E_{q(\vec{x})}[\log \prod_{i} q(x_i)] &= C + \E_{q(\vec{x})}[\log p(\vec{x}|D)]
     \nonumber \\
-    q(x_{k}) &\propto \exp{(\E_{\neg q(x_{k})}[\log p(x_{k}|\vec{x}_{\neg k},D)])}
+    \intertext{Log of product is sum of logs:}
+    \E_{q(\vec{x})}[\sum_{i}\log q(x_i)] &= C + \E_{q(\vec{x})}[\log p(\vec{x}|D)]
     \nonumber \\
-    \intertext{Note that the given portion of $p$ is constant with respect to
-    $x_{k}$, so reflecting on the definition of conditional probability lets us
-    make the following assertion:}
-    q(x_{k}) &\propto \exp{(\E_{\neg q(x_{k})}[\log p(x_{k},\vec{x}_{\neg k},D)])}
-    \label{eq:qform}
+    \intertext{Expectation of sum is sum of expectations:}
+    \sum_{i}\E_{q(\vec{x})}[\log q(x_i)] &= C + \E_{q(\vec{x})}[\log p(\vec{x}|D)]
+    \nonumber \\
+    \intertext{Irrelevant terms in expectation fall out (if this is not obvious,
+    think about the definition of expectations and the mean field assumption):}
+    \sum_{i}\E_{q(x_i)}[\log q(x_i)] &= C + \E_{q(\vec{x})}[\log p(\vec{x}|D)]
+    \nonumber \\
+    \intertext{Separate $x_k$ out from the rest:}
+    \E_{q(x_k)}[\log q(x_k)] + \sum_{i \neq k}\E_{q(x_i)}[\log q(x_i)] &=
+    C + \E_{q(x_k)}[\E_{q(\vec{x}_{\neg k})}[\log p(\vec{x}|D)]]
+    \nonumber \\
+    \intertext{Gather terms constant with respect to $x_k$ into $C_{\neg k}$:}
+    \E_{q(x_k)}[\log q(x_k)] &=
+    C_{\neg k} + \E_{q(x_k)}[\E_{q(\vec{x}_{\neg k})}[\log p(\vec{x}|D)]]
+    \nonumber \\
+    \intertext{Apply definition of expectations:}
+    \int q(x_k)\log q(x_k)dx_{k} &=
+    C_{\neg k} + \int q(x_k)\E_{q(\vec{x}_{\neg k})}[\log p(\vec{x}|D)]dx_{k}
+    \nonumber \\
+    \intertext{Take derivative of both sides with respect to $x_k$ (remember
+    that if $F = \int f(x) dx, \frac{dF}{dx} = f(x)$):}
+    q(x_k)\log q(x_k) &=
+    q(x_k)\E_{q(\vec{x}_{\neg k})}[\log p(\vec{x}|D)]
+    \nonumber \\
+    \intertext{Divide both sides by $q(x_k)$:}
+    \log q(x_k) &=
+    \E_{q(\vec{x}_{\neg k})}[\log p(\vec{x}|D)]
+    \nonumber \\
+    \intertext{Exponentiate both sides:}
+    q(x_k) &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(\vec{x}|D)])
 \end{align}
-So now we have the form for maximizing $q(x_{k})$.  Reflect on what we've gone
-through up to this point, and it should eventually become clear why maximizing
-$q(x_{k})$ will do what we want.
 
-Maximizing $q(x_{k})$ is a matter of recognizing which distribution it is and
-then setting its parameters correctly.\footnote{You might have noticed a
-weakness to this approach:  there is an assumption that $q(x_{k})$ is going to
-be a member of the exponential family of probability distributions that we will
-be able to work with; that also entails the assumption that we're conveniently
-working with conjugate pairs.  As I don't have experience deriving variational
-inference for non-conjugate pairs, I can't make much more comment on the
-matter.}  It's hard to explain this part without an example, so let's move on to
-our example.
+We now have some guidance as to what $q(x_k)$ ought to look like.
+Unfortunately, as we noted earlier, we can't calculate $p(\vec{x}|D)$ very
+easily (that's why we went to the trouble of making up $q(\vec{x})$).  We do,
+however, know how to calculate $p(x_k|\vec{x}_{\neg k}, D)$, assuming that
+$\vec{x}_{\neg k}$ is held constant.  This assumption would be true within a
+given iteration if we iteratively solve for $q(x_k)$ holding $\vec{x}_{\neg k}$
+constant; at each iteration, we change $k$.  Let's try it out.
+\begin{align}
+    q(x_k) &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(\vec{x}|D)])
+    \nonumber \\
+    \intertext{Separate $x_{k}$ from the rest:}
+    &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k, \vec{x}_{\neg k}|D)])
+    \nonumber \\
+    \intertext{Apply definition of conditional probability:}
+    &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log \frac{p(x_k, \vec{x}_{\neg k},D)}{p(D)}])
+    \nonumber \\
+    \intertext{Log of quotient is difference of logs:}
+    &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k, \vec{x}_{\neg k},D) - \log p(D)])
+    \nonumber \\
+    \intertext{Expectation of difference is difference of expectations:}
+    &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k, \vec{x}_{\neg k},D)] - \E_{q(\vec{x}_{\neg k})}[\log p(D)])
+    \nonumber \\
+    \intertext{Apply exponent rules:}
+    &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k, \vec{x}_{\neg k},D)]) \exp(- \E_{q(\vec{x}_{\neg k})}[\log p(D)])
+    \nonumber \\
+    \intertext{Note that $\exp(- \E_{q(\vec{x}_{\neg k})}[\log p(D)])$ is
+    constant (because $D$ is constant):}
+    &\propto
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k, \vec{x}_{\neg k},D)])
+    \label{eq:qformjoint}\\
+    \intertext{Multiply by a constant (we still keep proportionality, since
+    $\vec{x}_{\neg k}$ is constant, as is $D$):}
+    &\propto
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k, \vec{x}_{\neg k},D)])
+    \exp (-\E_{q(\vec{x}_{\neg k})}[\log p(\vec{x}_{\neg k},D)])
+    \nonumber \\
+    \intertext{Apply exponent rules:}
+    &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k, \vec{x}_{\neg k},D)]
+    -\E_{q(\vec{x}_{\neg k})}[\log p(\vec{x}_{\neg k},D)])
+    \nonumber \\
+    \intertext{Difference of expectations is expectation of difference:}
+    &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k, \vec{x}_{\neg k},D)
+    -\log p(\vec{x}_{\neg k},D)])
+    \nonumber \\
+    \intertext{Difference of logs is log of quotient:}
+    &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log \frac{p(x_k, \vec{x}_{\neg k},D)}
+    {p(\vec{x}_{\neg k},D)}])
+    \nonumber \\
+    \intertext{Apply definition of conditional probability:}
+    &=
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k|\vec{x}_{\neg k},D)])
+    \label{eq:qformcond}
+\end{align}
+
+So to summarize,
+\begin{align}\label{eq:qform}
+    q(x_k) &\propto
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k, \vec{x}_{\neg k},D)])
+    \nonumber \\
+    &\propto
+    \exp (\E_{q(\vec{x}_{\neg k})}[\log p(x_k|\vec{x}_{\neg k},D)])
+\end{align}
+Either form for $q(x_k)$ can work, so we should choose the easier one to work
+for the given problem.\footnote{Blei \autocite{bleinotesvar} derives these forms
+for $q(x_k)$ by differentiating the lower bound with respect to $q(x_k)$.  I
+couldn't figure out how to do that, so I came up with this approach after
+looking at Ormerod and Wand's attempt to explain the derivation
+\autocite{ormerod2010explaining} (they likewise choose not to take Blei's
+approach).}
+
+You may be suspicious that we can find the joint $p(x_k, \vec{x}_{\neg k}, D)$
+(or the conditional $p(x_k|\vec{x}_{\neg k}, D)$) when we've already said that
+we can't find $p(\vec{x}|D)$.  To assuage your suspicions (at least in the case
+of the joint), let's apply the principles we've just derived to an example.
 
 \section{Faculty Evaluations Model}
 
@@ -393,14 +399,14 @@ So
     \log{p(y_{k}|\mu, \delta)} \nonumber \\
     &=
     \log{\left(\frac{1}{\sqrt{2\delta'\pi}}\exp{-\frac{(\mu-\mu')^{2}}{2\delta'}}\right)} +
-    \log{\left(\frac{\beta^{\alpha}}{\Gamma(\alpha)}\delta^{-\alpha-1}\exp{\frac{\beta}{\delta}}\right)}
+    \log{\left(\frac{\beta^{\alpha}}{\Gamma(\alpha)}\delta^{-\alpha-1}\exp{\frac{-\beta}{\delta}}\right)}
     \nonumber \\
     &\quad\quad\quad\quad+ \sum_{k=1}^{K}
     \log{\left(\frac{1}{\sqrt{2\delta\pi}}\exp{-\frac{(y_{k}-\mu)^{2}}{2\delta}}\right)}
     \nonumber \\
     &= -\frac{1}{2} \log{(2\delta'\pi)} - \frac{(\mu - \mu')^{2}}{2\delta'} +
     \alpha \log{(\beta)} - \log{(\Gamma(\alpha))} - (\alpha + 1) \log{(\delta)}
-    + \frac{\beta}{\delta}\nonumber \\
+    + \frac{-\beta}{\delta}\nonumber \\
     &\quad\quad\quad\quad+ \sum_{k=1}^{K} \left[-\frac{1}{2}
     \log{(2\delta\pi)} - \frac{(y_{k} - \mu)^{2}}{2\delta}\right] \nonumber \\
     &= -\frac{(\mu-\mu')^{2}}{2\delta'} - (\alpha+1)\log{(\delta)} +
