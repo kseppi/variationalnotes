@@ -398,11 +398,11 @@ So
     \beta)} + \sum_{k=1}^{K}
     \log{p(y_{k}|\mu, \delta)} \nonumber \\
     &=
-    \log{\left(\frac{1}{\sqrt{2\delta'\pi}}\exp{-\frac{(\mu-\mu')^{2}}{2\delta'}}\right)} +
-    \log{\left(\frac{\beta^{\alpha}}{\Gamma(\alpha)}\delta^{-\alpha-1}\exp{\frac{-\beta}{\delta}}\right)}
+    \log{\left(\frac{1}{\sqrt{2\delta'\pi}}\exp{\left(-\frac{(\mu-\mu')^{2}}{2\delta'}\right)}\right)} +
+    \log{\left(\frac{\beta^{\alpha}}{\Gamma(\alpha)}\delta^{-\alpha-1}\exp{\left(\frac{-\beta}{\delta}\right)}\right)}
     \nonumber \\
     &\quad\quad\quad\quad+ \sum_{k=1}^{K}
-    \log{\left(\frac{1}{\sqrt{2\delta\pi}}\exp{-\frac{(y_{k}-\mu)^{2}}{2\delta}}\right)}
+    \log{\left(\frac{1}{\sqrt{2\delta\pi}}\exp{\left(-\frac{(y_{k}-\mu)^{2}}{2\delta}\right)}\right)}
     \nonumber \\
     &= -\frac{1}{2} \log{(2\delta'\pi)} - \frac{(\mu - \mu')^{2}}{2\delta'} +
     \alpha \log{(\beta)} - \log{(\Gamma(\alpha))} - (\alpha + 1) \log{(\delta)}
