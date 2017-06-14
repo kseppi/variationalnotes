@@ -114,8 +114,11 @@ class I am taking, taught by Dr. Kevin Seppi.  After presenting a previous
 version of this document in class, the students pointed out errors.  Thanks to
 them for helping me fix the document.
 
-This document was last updated on July 14, 2016, in order to clear up the
-derivation of the form of $q(x_k)$ and to fix a few mistakes.
+The source code for this document can be found at
+\url{https://github.com/nOkuda/variationalnotes}, in the \texttt{varfac}
+directory.  I use \texttt{xelatex} to produce this document.
+
+This document was last updated on Jun 14, 2017, in order to fix a few mistakes.
 
 \section{Variational Inference}
 
@@ -479,11 +482,11 @@ Let's start with $\mu$:
         - \frac{\sum_{k=1}^{K}(y_{k}-\mu)^2}{2}\E_{\neg q(\mu)}[\frac{1}{\delta}]
     )}
     \nonumber \\
-    &= \exp{(-\frac{\mu^2 - 2\mu\mu' -\mu'^2}{2\delta'}
+    &= \exp{(-\frac{\mu^2 - 2\mu\mu' +\mu'^2}{2\delta'}
         - \frac{\sum_{k=1}^{K}(y_{k}^2 -2y_{k}\mu + \mu^2)}{2}\E_{\neg q(\mu)}[\frac{1}{\delta}]
     )}
     \nonumber \\
-    &= \exp{(-\frac{\mu^2 - 2\mu\mu' -\mu'^2}{2\delta'}
+    &= \exp{(-\frac{\mu^2 - 2\mu\mu' +\mu'^2}{2\delta'}
         - \frac{\sum_{k=1}^{K}y_{k}^2 -\sum_{k=1}^{K}2y_{k}\mu + \sum_{k=1}^{K}\mu^2}{2}\E_{\neg q(\mu)}[\frac{1}{\delta}]
     )}
     \nonumber \\
@@ -491,21 +494,21 @@ Let's start with $\mu$:
         - \frac{-\sum_{k=1}^{K}2y_{k}\mu + K\mu^2}{2}\E_{\neg q(\mu)}[\frac{1}{\delta}]
     )}
     \nonumber \\
-    &= \exp{(-\frac{1}{2\delta'}\mu^2 - \frac{\mu'}{\delta'}\mu
+    &= \exp{(-\frac{1}{2\delta'}\mu^2 + \frac{\mu'}{\delta'}\mu
         + (\sum_{k=1}^{K}y_{k}\mu - \frac{K}{2}\mu^2)\E_{\neg q(\mu)}[\frac{1}{\delta}]
     )}
     \nonumber \\
-    &= \exp{(-\frac{1}{2\delta'}\mu^2 - \frac{\mu'}{\delta'}\mu
+    &= \exp{(-\frac{1}{2\delta'}\mu^2 + \frac{\mu'}{\delta'}\mu
         + (\frac{\sum_{k=1}^{K}y_{k}\delta'}{\delta'}\mu
         - \frac{K\delta'}{2\delta'}\mu^2)\E_{\neg q(\mu)}[\frac{1}{\delta}]
     )}
     \nonumber \\
     &= \exp{(-\frac{1+K\delta'\E_{\neg q(\mu)}[\frac{1}{\delta}]}{2\delta'}\mu^2
-    + \frac{-\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}{\delta'}\mu
+    + \frac{\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}{\delta'}\mu
     )}
     \nonumber \\
     &= \exp{(-(\frac{1+\E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K}{2\delta'}\mu^2
-    - \frac{-\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}{\delta'}\mu
+    - \frac{\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}{\delta'}\mu
     ))}
     \nonumber \\
     \intertext{Complete the square and let the constant of proportionality take
@@ -514,14 +517,14 @@ Let's start with $\mu$:
     \exp{(-\frac{1+\E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K}{2\delta'}
     (\mu
     - \frac{
-    -\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}
+    \mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'\sum_{k=1}^{K}y_{k}}
     {1 + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K})^2
     )}
 \end{align}
 Since $q(\mu)$ is a pdf, and since we know that it is proportional to the kernel
 of a Normal distribution, we can see that
 \begin{align}\label{eq:qmu}
-    q(\mu) = N\left(\frac{-\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}] \delta' \sum_{k=1}^{K}
+    q(\mu) = N\left(\frac{\mu' + \E_{\neg q(\mu)}[\frac{1}{\delta}] \delta' \sum_{k=1}^{K}
     y_{k}}{1 + \E_{\neg q(\mu)}[\frac{1}{\delta}]\delta'K}, \frac{\delta'}{1 + \E_{\neg
     q(\mu)}[\frac{1}{\delta}]\delta'K}\right).
 \end{align}
@@ -541,7 +544,7 @@ Now we need $q(\delta)$:
     + C_p])}
     \nonumber \\
     &= \exp{}(-\E_{\neg q(\delta)}[\frac{(\mu-\mu')^2}{2\delta'}]
-    - (\alpha+1)\log{(\delta)} - \E_{\neg
+    - \E_{\neg q(\delta)}[(\alpha+1)\log{(\delta)}] - \E_{\neg
     q(\delta)}[\frac{\beta}{\delta}]
     - \E_{\neg q(\delta)}[\frac{K}{2}\log{(\delta)}]
     \nonumber \\
@@ -653,7 +656,7 @@ With these expectations and the parameter specifications from Eqs.~\ref{eq:qmu}
 and \ref{eq:qdelta}, we have all the information we need to form the update
 formulas.  Simply plug in the expectation values where needed:
 \begin{align}
-    m &= \frac{-\mu' + \frac{b}{a} \delta' \sum_{k=1}^{K}
+    m &= \frac{\mu' + \frac{b}{a} \delta' \sum_{k=1}^{K}
     y_{k}}{1 + \frac{b}{a}\delta'K}
     \\
     v &= \frac{\delta'}{1 + \frac{b}{a}\delta'K}
@@ -671,7 +674,7 @@ Finally, let's implement these update equations:
 
 Running this code yields the following results:
 \begin{verbatim}
-# Variational mean, variance: 5.57095939532 0.259009972268
+# Variational mean, variance: 5.35243135086 0.358306747892
 # Sample mean, variance: 5.7552173913 0.230990170132
 \end{verbatim}
 
