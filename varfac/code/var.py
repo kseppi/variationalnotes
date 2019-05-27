@@ -60,7 +60,7 @@ def _run():
     for _ in range(NUM_ITERS):
         b_div_a = b / a
         # m = (-mu + (b/a) * sigma2 * (sum(data))) / (1 + ((b/a) * sigma2 * K)
-        m = (-mu + (b_div_a * sigma2 * data_sum)) / (1 + (b_div_a * ksigma2))
+        m = (mu + (b_div_a * sigma2 * data_sum)) / (1 + (b_div_a * ksigma2))
         print('m', m)
         # v = sigma2 / (1 + ((b/a) * sigma2 * K))
         v = sigma2 / (1 + (b_div_a * ksigma2))
